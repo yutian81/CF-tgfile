@@ -705,12 +705,23 @@ async function handleAdminRequest(request, config) {
         color: white;
         text-decoration: none;
       }
+      .backup {
+        display: inline-block;
+        margin-left: auto;
+        margin-right: 40px;
+        color: #007bff;
+        text-decoration: none;
+      }
+      .backup:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <div class="header">
         <h1>文件管理</h1>
+        <a href="/upload" class="backup">返回</a>
         <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
       </div>
       <div class="grid" id="fileGrid">
