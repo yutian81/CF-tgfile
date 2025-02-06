@@ -65,6 +65,19 @@ function authenticate(request, config) {
   }
 }
 
+// 文件大小计算函数
+function formatSize(bytes) {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  return `${size.toFixed(2)} ${units[unitIndex]}`;
+}
+
+// 请求登录页面
 async function handleAuthRequest(request, config) {
   if (request.method === 'POST') {
     const { username, password } = await request.json();
@@ -82,19 +95,7 @@ async function handleAuthRequest(request, config) {
   return generateLoginPage();
 }
 
-// 文件大小计算函数
-function formatSize(bytes) {
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-  return `${size.toFixed(2)} ${units[unitIndex]}`;
-}
-
-// 页面生成函数
+// 登录页面生成函数
 function generateLoginPage() {
   const html = `<!DOCTYPE html>
   <html lang="zh-CN">
@@ -217,14 +218,12 @@ function generateLoginPage() {
   });
 }
 
+// 请求并生成根页面----文件上传
 async function handleRootRequest(request, config) {
   if (config.enableAuth && !authenticate(request, config)) {
     return Response.redirect(`${new URL(request.url).origin}/login`, 302);
   }
-  if (config.enableAuth && !authenticate(request, config)) {
-    return Response.redirect(`${new URL(request.url).origin}/login`, 302);
-  }
-  
+
   const html = `<!DOCTYPE html>
   <html lang="zh-CN">
   <head>
@@ -357,7 +356,12 @@ async function handleRootRequest(request, config) {
             <button onclick="copyUrls('markdown')">复制Markdown</button>
             <button onclick="copyUrls('html')">复制HTML</button>
           </div>
-          <div class="copyright"><span>© 2025 Your Company</span></div>
+          <div class="copyright">
+            <span>© 2025 Copyright by
+            <a href="https://github.com/yutian81/CF-tgfile" target="_blank" style="text-decoration: none; color: inherit;">yutian81's GitHub</a> | 
+            <a href="https://blog.811520.xyz/" target="_blank" style="text-decoration: none; color: inherit;">青云志</a>
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -528,6 +532,7 @@ async function handleRootRequest(request, config) {
   });
 }
 
+// 请求并生成管理页面----文件管理
 async function handleAdminRequest(request, config) {
   if (!authenticate(request, config)) {
     return Response.redirect(`${new URL(request.url).origin}/login`, 302);
@@ -555,6 +560,7 @@ async function handleAdminRequest(request, config) {
         </div>
         <div class="file-actions">
           <button class="btn btn-copy" onclick="copyUrl('${file.url}')">复制链接</button>
+          <a class="btn btn-down" href="${file.url}" download="${fileName}">下载</a>
           <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
         </div>
       </div>
@@ -640,6 +646,11 @@ async function handleAdminRequest(request, config) {
       .btn-copy {
         background: #007bff;
         color: white;
+      }
+      .btn-down {
+        background: #007bff;
+        color: white;
+        text-decoration: none;
       }
     </style>
   </head>
@@ -733,7 +744,7 @@ function getPreviewHtml(url) {
 
 async function handleUploadRequest(request, config) {
   if (config.enableAuth && !authenticate(request, config)) {
-    return new Response('未授权', { status: 401 });
+    return Response.redirect(`${new URL(request.url).origin}/login`, 302);
   }
 
   try {
@@ -889,8 +900,8 @@ async function handleFileRequest(request, config) {
 }
 
 async function handleDeleteRequest(request, config) {
-  if (!authenticate(request, config)) {
-    return new Response('未授权', { status: 401 });
+  if (config.enableAuth && !authenticate(request, config)) {
+    return Response.redirect(`${new URL(request.url).origin}/login`, 302);
   }
 
   try {
@@ -915,8 +926,8 @@ async function handleDeleteRequest(request, config) {
 }
 
 async function handleSearchRequest(request, config) {
-  if (!authenticate(request, config)) {
-    return new Response('未授权', { status: 401 });
+  if (config.enableAuth && !authenticate(request, config)) {
+    return Response.redirect(`${new URL(request.url).origin}/login`, 302);
   }
 
   try {
