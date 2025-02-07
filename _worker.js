@@ -166,13 +166,17 @@ async function handleUploadRequest(request, config) {
         throw new Error('未获取到文件ID');
       }
   
-      const timestamp = Date.now();
+      const time = Date.now();
+      const beijingtime = new Date(time + 8 * 60 * 60 * 1000);
+      const timestamp = beijingtime.toISOString();
       const ext = file.name.split('.').pop();
-      const url = `https://${config.domain}/${timestamp}.${ext}`;
+      // const filenameURL = encodeURIComponent(file.name);
+      const url = `https://${config.domain}/${file.name}`;
   
-      await config.database.prepare(
-        'INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?)'
-      ).bind(
+      await config.database.prepare(`
+        INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
         url,
         fileId,
         timestamp,
@@ -207,9 +211,9 @@ async function handleAdminRequest(request, config) {
 
   const fileList = files.results || [];
   const fileCards = fileList.map(file => {
-    const fileName = file.file_name || new URL(file.url).pathname.split('/').pop();
+    const fileName = file.file_name || decodeURIComponent(new URL(file.url).pathname.split('/').pop());
     const fileSize = formatSize(file.file_size || 0);
-    const createdAt = new Date(file.created_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
     return `
       <div class="file-card" data-url="${file.url}">
         <div class="file-preview">
@@ -233,6 +237,35 @@ async function handleAdminRequest(request, config) {
   return new Response(html, {
     headers: { 'Content-Type': 'text/html;charset=UTF-8' }
   });
+}
+
+// 处理文件搜索
+async function handleSearchRequest(request, config) {
+  if (config.enableAuth && !authenticate(request, config)) {
+    return Response.redirect(`${new URL(request.url).origin}/`, 302);
+  }
+
+  try {
+    const { query } = await request.json();
+    const decodedQuery = decodeURIComponent(query);  // 解码查询字符串，处理中文字符和特殊字符
+    const searchPattern = `%${decodedQuery}%`;
+    
+    const files = await config.database.prepare(
+      'SELECT url, fileId, created_at, file_name, file_size FROM files WHERE file_name LIKE ? COLLATE NOCASE ORDER BY created_at DESC'
+    ).bind(searchPattern).all();
+
+    return new Response(
+      JSON.stringify({ files: files.results || [] }),
+      { headers: { 'Content-Type': 'application/json' }}
+    );
+
+  } catch (error) {
+    console.error(`[Search Error] ${error.message}`);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' }}
+    );
+  }
 }
 
 function getPreviewHtml(url) {
@@ -364,33 +397,6 @@ async function handleDeleteRequest(request, config) {
 
   } catch (error) {
     console.error(`[Delete Error] ${error.message}`);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' }}
-    );
-  }
-}
-
-async function handleSearchRequest(request, config) {
-  if (config.enableAuth && !authenticate(request, config)) {
-    return Response.redirect(`${new URL(request.url).origin}/`, 302);
-  }
-
-  try {
-    const { query } = await request.json();
-    const searchPattern = `%${query}%`;
-    
-    const files = await config.database.prepare(
-      'SELECT url, fileId, created_at, file_name, file_size FROM files WHERE url LIKE ? OR file_name LIKE ? ORDER BY created_at DESC'
-    ).bind(searchPattern, searchPattern).all();
-
-    return new Response(
-      JSON.stringify({ files: files.results || [] }),
-      { headers: { 'Content-Type': 'application/json' }}
-    );
-
-  } catch (error) {
-    console.error(`[Search Error] ${error.message}`);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' }}
