@@ -171,10 +171,11 @@ async function handleUploadRequest(request, config) {
       const beijingtime = new Date(time + 8 * 60 * 60 * 1000);
       const timestamp = beijingtime.toISOString();
       const ext = file.name.split('.').pop();
-      // const filenameURL = encodeURIComponent(file.name);
       const url = `https://${config.domain}/${time}.$(ext)`;
-  
-      await config.database.prepare(` 
+      // const filenameB64 = 对文件名进行b64编码，拼接到url地址中
+      // const url = `https://${config.domain}/${filenameB64}.$(ext)`;
+      
+      await config.database.prepare(`  
         INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
         VALUES (?, ?, ?, ?, ?, ?) 
       `).bind(
@@ -247,12 +248,11 @@ async function handleSearchRequest(request, config) {
 
   try {
     const { query } = await request.json();
-    // const decodedQuery = decodeURIComponent(query);
     const searchPattern = `%${query}%`;    
     const files = await config.database.prepare(
       `SELECT url, fileId, created_at, file_name, file_size 
        FROM files 
-       WHERE file_name LIKE ? ESCAPE '!'  
+       WHERE file_name LIKE ? ESCAPE '!'   
        COLLATE NOCASE  
        ORDER BY created_at DESC`
     ).bind(searchPattern).all();
@@ -1092,8 +1092,6 @@ function generateAdminPage(fileCards) {
         fileCards.forEach(card => {
           const fileName = card.querySelector('.file-info div:first-child').textContent.toLowerCase();
           card.style.display = fileName.includes(searchTerm) ? '' : 'none';
-          // const url = card.dataset.url.toLowerCase();
-          // card.style.display = url.includes(searchTerm) ? '' : 'none';
         });
       });
 
