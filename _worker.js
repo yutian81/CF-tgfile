@@ -171,9 +171,9 @@ async function handleUploadRequest(request, config) {
       const beijingtime = new Date(time + 8 * 60 * 60 * 1000);
       const timestamp = beijingtime.toISOString();
       const ext = file.name.split('.').pop();
-      const url = `https://${config.domain}/${time}.$(ext)`;
+      const url = `https://${config.domain}/${time}.${ext}`;
       // const datetime = timestamp.split('T')[0].replace(/-/g, ''); // 获取ISO时间戳的纯数字日期
-      // const url = `https://${config.domain}/${datetime}-${time}.$(ext)`;
+      // const url = `https://${config.domain}/${datetime}-${time}.${ext}`; 
       
       await config.database.prepare(`  
         INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
