@@ -1,4 +1,4 @@
-// 数据库初始化
+// 数据库初始化函数
 async function initDatabase(config) {
   await config.database.prepare(`
     CREATE TABLE IF NOT EXISTS files (
@@ -172,7 +172,7 @@ async function handleUploadRequest(request, config) {
       const timestamp = beijingtime.toISOString();
       const ext = file.name.split('.').pop();
       // const filenameURL = encodeURIComponent(file.name);
-      const url = `https://${config.domain}/${time}.${ext}`;
+      const url = `https://${config.domain}/${file.name}`;
   
       await config.database.prepare(`
         INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
@@ -252,7 +252,11 @@ async function handleSearchRequest(request, config) {
     const searchPattern = `%${decodedQuery}%`;
     
     const files = await config.database.prepare(
-      'SELECT url, fileId, created_at, file_name, file_size FROM files WHERE file_name LIKE ? COLLATE NOCASE ORDER BY created_at DESC'
+      `SELECT url, fileId, created_at, file_name, file_size 
+       FROM files 
+       WHERE file_name LIKE ? ESCAPE '!' 
+       COLLATE NOCASE 
+       ORDER BY created_at DESC`
     ).bind(searchPattern).all();
 
     return new Response(
@@ -715,6 +719,34 @@ function generateUploadPage() {
       font-size: 12px;
       color: #888;
       }
+      .progress-bar {
+        height: 20px;
+        background: #eee;
+        border-radius: 10px;
+        margin: 8px 0;
+        overflow: hidden;
+        position: relative;
+      }
+      .progress-track {
+        height: 100%;
+        background: #007bff;
+        transition: width 0.3s ease;
+        width: 0;
+      }
+      .progress-text {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 12px;
+      }
+      .success .progress-track {
+        background: #28a745;
+      }
+      .error .progress-track {
+        background: #dc3545;
+      }
     </style>
   </head>
   <body>
@@ -828,26 +860,38 @@ function generateUploadPage() {
         const preview = createPreview(file);
         previewArea.appendChild(preview);
 
-        const formData = new FormData();
-        formData.append('file', file);
+        const xhr = new XMLHttpRequest();
+        const progressTrack = preview.querySelector('.progress-track');
+        const progressText = preview.querySelector('.progress-text');
 
-        try {
-          const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData
-          });
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            progressTrack.style.width = \`\${percent}%\`;
+            progressText.textContent = \`\${percent}%\`;
+          }
+        });
 
-          if (!response.ok) throw new Error('上传失败');
-          
-          const data = await response.json();
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const data = JSON.parse(xhr.responseText);
           uploadedUrls.push(data.url);
           updateUrlArea();
-          preview.querySelector('.status').textContent = '上传成功';
           preview.classList.add('success');
-        } catch (error) {
-          preview.querySelector('.status').textContent = '上传失败';
+          } else {
           preview.classList.add('error');
         }
+        });
+
+        xhr.addEventListener('error', () => {
+          progressText.textContent = '上传失败';
+          preview.classList.add('error');
+        });
+
+        const formData = new FormData();
+        formData.append('file', file);
+        xhr.open('POST', '/upload');
+        xhr.send(formData);
       }
 
       function createPreview(file) {
@@ -865,7 +909,10 @@ function generateUploadPage() {
         info.innerHTML = \`
           <div>\${file.name}</div>
           <div>\${formatSize(file.size)}</div>
-          <div class="status">上传中...</div>
+          <div class="progress-bar">
+            <div class="progress-track"></div>
+            <span class="progress-text">0%</span>
+          </div>
         \`;
         div.appendChild(info);
 
