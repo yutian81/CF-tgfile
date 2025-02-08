@@ -176,7 +176,7 @@ async function handleUploadRequest(request, config) {
   
       await config.database.prepare(`
         INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?) 
       `).bind(
         url,
         fileId,
@@ -212,7 +212,7 @@ async function handleAdminRequest(request, config) {
 
   const fileList = files.results || [];
   const fileCards = fileList.map(file => {
-    const fileName = file.file_name || decodeURIComponent(new URL(file.url).pathname.split('/').pop());
+    const fileName = file.file_name;
     const fileSize = formatSize(file.file_size || 0);
     const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
     return `
