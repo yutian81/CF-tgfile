@@ -172,9 +172,9 @@ async function handleUploadRequest(request, config) {
       const timestamp = beijingtime.toISOString();
       const ext = file.name.split('.').pop();
       // const filenameURL = encodeURIComponent(file.name);
-      const url = `https://${config.domain}/${file.name}`;
+      const url = `https://${config.domain}/${time}.$(ext)`;
   
-      await config.database.prepare(`
+      await config.database.prepare(` 
         INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
         VALUES (?, ?, ?, ?, ?, ?) 
       `).bind(
@@ -199,10 +199,9 @@ async function handleUploadRequest(request, config) {
       );
     }
 }
-
 // 处理文件管理和预览
 async function handleAdminRequest(request, config) {
-  if (config.enableAuth && !authenticate(request, config)) {
+  if (config.enableAuth && !authenticate(request, config)) { 
     return Response.redirect(`${new URL(request.url).origin}/`, 302);
   }
 
@@ -217,12 +216,12 @@ async function handleAdminRequest(request, config) {
     const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
     return `
       <div class="file-card" data-url="${file.url}">
-        <div class="file-preview">
+        <div class="file-preview"> 
           ${getPreviewHtml(file.url)}
         </div>
-        <div class="file-info">
+        <div class="file-info"> 
           <div>${fileName}</div>
-          <div>${fileSize}</div>
+          <div>${fileSize}</div> 
           <div>${createdAt}</div>
         </div>
         <div class="file-actions">
@@ -236,7 +235,7 @@ async function handleAdminRequest(request, config) {
 
   const html = generateAdminPage(fileCards);
   return new Response(html, {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+    headers: { 'Content-Type': 'text/html;charset=UTF-8' } 
   });
 }
 
@@ -248,14 +247,13 @@ async function handleSearchRequest(request, config) {
 
   try {
     const { query } = await request.json();
-    const decodedQuery = decodeURIComponent(query);  // 解码查询字符串，处理中文字符和特殊字符
-    const searchPattern = `%${decodedQuery}%`;
-    
+    // const decodedQuery = decodeURIComponent(query);
+    const searchPattern = `%${query}%`;    
     const files = await config.database.prepare(
       `SELECT url, fileId, created_at, file_name, file_size 
        FROM files 
-       WHERE file_name LIKE ? ESCAPE '!' 
-       COLLATE NOCASE 
+       WHERE file_name LIKE ? ESCAPE '!'  
+       COLLATE NOCASE  
        ORDER BY created_at DESC`
     ).bind(searchPattern).all();
 
@@ -282,7 +280,7 @@ function getPreviewHtml(url) {
   const isPdf = ext === 'pdf';
   
   if (isImage) {
-    return `<img src="${url}" alt="预览">`;
+    return `<img src="${url}" alt="预览">`; 
   } else if (isVideo) {
     return `<video src="${url}" controls></video>`;
   } else if (isAudio) {
@@ -1004,7 +1002,7 @@ function generateAdminPage(fileCards) {
       }
       .file-preview {
         height: 200px;
-        background: rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.5); 
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1092,13 +1090,15 @@ function generateAdminPage(fileCards) {
       searchInput.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase();
         fileCards.forEach(card => {
-          const url = card.dataset.url.toLowerCase();
-          card.style.display = url.includes(searchTerm) ? '' : 'none';
+          const fileName = card.querySelector('.file-info div:first-child').textContent.toLowerCase();
+          card.style.display = fileName.includes(searchTerm) ? '' : 'none';
+          // const url = card.dataset.url.toLowerCase();
+          // card.style.display = url.includes(searchTerm) ? '' : 'none';
         });
       });
 
       function copyUrl(url) {
-        navigator.clipboard.writeText(url);
+        navigator.clipboard.writeText(url); 
         alert('已复制到剪贴板');
       }
 
