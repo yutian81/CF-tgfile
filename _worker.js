@@ -1,4 +1,4 @@
-// 数据库初始化函数
+// 数据库初始化
 async function initDatabase(config) {
   await config.database.prepare(`
     CREATE TABLE IF NOT EXISTS files (
@@ -12,6 +12,7 @@ async function initDatabase(config) {
   `).run();
 }
 
+// 导出函数
 export default {
   async fetch(request, env) {
     // 环境变量配置
@@ -73,7 +74,7 @@ function authenticate(request, config) {
   return false;
 }
 
-// 处理认证路由请求
+// 处理路由
 async function handleAuthRequest(request, config) {
   if (config.enableAuth) {
     // 使用 authenticate 函数检查用户是否已认证
@@ -87,7 +88,7 @@ async function handleAuthRequest(request, config) {
   return handleUploadRequest(request, config);
 }
 
-// 处理登录请求
+// 处理登录
 async function handleLoginRequest(request, config) {
   if (request.method === 'POST') {
     const { username, password } = await request.json();
@@ -121,7 +122,7 @@ async function handleLoginRequest(request, config) {
   });
 }
 
-// 处理文件上传请求
+// 处理文件上传
 async function handleUploadRequest(request, config) {
     if (config.enableAuth && !authenticate(request, config)) {
       return Response.redirect(`${new URL(request.url).origin}/`, 302);
@@ -199,7 +200,7 @@ async function handleUploadRequest(request, config) {
     }
 }
 
-// 请求并生成文件管理页面 /admin
+// 处理文件管理和预览
 async function handleAdminRequest(request, config) {
   if (config.enableAuth && !authenticate(request, config)) {
     return Response.redirect(`${new URL(request.url).origin}/`, 302);
@@ -268,23 +269,28 @@ async function handleSearchRequest(request, config) {
   }
 }
 
+// 支持预览的文件类型
 function getPreviewHtml(url) {
   const ext = (url.split('.').pop() || '').toLowerCase();
-  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'icon'].includes(ext);
   const isVideo = ['mp4', 'webm'].includes(ext);
-  const isPdf = ext === 'pdf';  // 支持 PDF 文件
+  const isAudio = ['mp3', 'wav', 'ogg'].includes(ext);
+  const isPdf = ext === 'pdf';
   
   if (isImage) {
     return `<img src="${url}" alt="预览">`;
   } else if (isVideo) {
     return `<video src="${url}" controls></video>`;
+  } else if (isAudio) {
+    return `<audio src="${url}" controls></audio>`;
   } else if (isPdf) {
-    return `<iframe src="${url}" width="100%" height="500px"></iframe>`;  // PDF预览
+    return `<iframe src="${url}" width="100%" height="500px"></iframe>`;
   } else {
     return `<div style="font-size: 48px">📄</div>`;
   }
 }
 
+// 获取文件并缓存
 async function handleFileRequest(request, config) {
   const url = request.url;
   const cache = caches.default;
@@ -375,6 +381,7 @@ async function handleFileRequest(request, config) {
   }
 }
 
+// 处理文件删除
 async function handleDeleteRequest(request, config) {
   if (config.enableAuth && !authenticate(request, config)) {
     return Response.redirect(`${new URL(request.url).origin}/`, 302);
@@ -404,6 +411,7 @@ async function handleDeleteRequest(request, config) {
   }
 }
 
+// 支持上传的文件类型
 function getContentType(ext) {
   const types = {
     jpg: 'image/jpeg',
@@ -412,21 +420,23 @@ function getContentType(ext) {
     gif: 'image/gif',
     webp: 'image/webp',
     svg: 'image/svg+xml',
+    icon: 'image/x-icon',
     mp4: 'video/mp4',
     webm: 'video/webm',
     mp3: 'audio/mpeg',
     wav: 'audio/wav',
+    ogg: 'audio/ogg',
     pdf: 'application/pdf',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    txt: 'text/plain',
+    md: 'text/markdown',
     zip: 'application/zip',
     rar: 'application/x-rar-compressed',
-    txt: 'text/plain',
     json: 'application/json',
     xml: 'application/xml',
-    md: 'text/markdown',
+    ini: 'text/plain',
     js: 'application/javascript',
     yml: 'application/yaml',
+    yaml: 'application/yaml',
     py: 'text/x-python',
     sh: 'application/x-sh'
   };
