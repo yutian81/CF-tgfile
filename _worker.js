@@ -172,7 +172,7 @@ async function handleUploadRequest(request, config) {
       const timestamp = beijingtime.toISOString();
       const ext = file.name.split('.').pop();
       // const filenameURL = encodeURIComponent(file.name);
-      const url = `https://${config.domain}/${file.name}`;
+      const url = `https://${config.domain}/${time}.${ext}`;
   
       await config.database.prepare(`
         INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
