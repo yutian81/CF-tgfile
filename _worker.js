@@ -165,14 +165,14 @@ async function handleUploadRequest(request, config) {
       await config.database.prepare(`  
         INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
         VALUES (?, ?, ?, ?, ?, ?) 
-      `).bind(
-        url,
-        fileId,
-        timestamp,
-        file.name,
-        file.size,
-        file.type || getContentType(ext)
-      ).run();
+        `).bind(
+          url,
+          fileId,
+          timestamp,
+          file.name,
+          file.size,
+          file.type || getContentType(ext)
+        ).run();
   
       return new Response(
         JSON.stringify({ url }),
