@@ -136,16 +136,10 @@ async function handleUploadRequest(request, config) {
 
     try {
       const formData = await request.formData();
-      const file = formData.get('file');
+      const file = formData.get('file');      
       
-      if (!file) {
-        throw new Error('未找到文件');
-      }
-  
-      if (file.size > config.maxSizeMB * 1024 * 1024) {
-        throw new Error(`文件大小超过${config.maxSizeMB}MB限制`);
-      }
-  
+      if (!file) throw new Error('未找到文件');
+      if (file.size > config.maxSizeMB * 1024 * 1024) throw new Error(`文件大小超过${config.maxSizeMB}MB限制`);
       const tgFormData = new FormData();
       tgFormData.append('chat_id', config.tgChatId);
       tgFormData.append('document', file);
@@ -155,21 +149,14 @@ async function handleUploadRequest(request, config) {
         { method: 'POST', body: tgFormData }
       );
   
-      if (!tgResponse.ok) {
-        throw new Error('Telegram上传失败');
-      }
-  
+      if (!tgResponse.ok) throw new Error('Telegram上传失败');  
       const tgData = await tgResponse.json();
       const document = tgData.result?.document;
       const fileId = document?.file_id;
       
-      if (!fileId) {
-        throw new Error('未获取到文件ID');
-      }
-  
+      if (!fileId) throw new Error('未获取到文件ID');
       const time = Date.now();
-      const beijingtime = new Date(time + 8 * 60 * 60 * 1000);
-      const timestamp = beijingtime.toISOString();
+      const timestamp = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
       const ext = file.name.split('.').pop();
       const url = `https://${config.domain}/${time}.${ext}`;
       // const datetime = timestamp.split('T')[0].replace(/-/g, ''); // 获取ISO时间戳的纯数字日期
@@ -253,8 +240,8 @@ async function handleSearchRequest(request, config) {
     const files = await config.database.prepare(
       `SELECT url, fileId, created_at, file_name, file_size 
        FROM files 
-       WHERE file_name LIKE ? ESCAPE '!'   
-       COLLATE NOCASE  
+       WHERE file_name LIKE ? ESCAPE '!'
+       COLLATE NOCASE
        ORDER BY created_at DESC`
     ).bind(searchPattern).all();
 
