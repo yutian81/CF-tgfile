@@ -162,9 +162,9 @@ async function handleUploadRequest(request, config) {
       // const datetime = timestamp.split('T')[0].replace(/-/g, ''); // 获取ISO时间戳的纯数字日期
       // const url = `https://${config.domain}/${datetime}-${time}.${ext}`; 
       
-      await config.database.prepare(`  
+      await config.database.prepare(`
         INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
-        VALUES (?, ?, ?, ?, ?, ?) 
+        VALUES (?, ?, ?, ?, ?, ?)
         `).bind(
           url,
           fileId,
@@ -175,14 +175,14 @@ async function handleUploadRequest(request, config) {
         ).run();
   
       return new Response(
-        JSON.stringify({ url }),
+        JSON.stringify({ status: 1, msg: "✔ 上传成功", url }),
         { headers: { 'Content-Type': 'application/json' }}
       );
   
     } catch (error) {
       console.error(`[Upload Error] ${error.message}`);
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ status: 0, msg: "✘ 上传失败", error: error.message }),
         { status: 500, headers: { 'Content-Type': 'application/json' }}
       );
     }
@@ -190,7 +190,7 @@ async function handleUploadRequest(request, config) {
 
 // 处理文件管理和预览
 async function handleAdminRequest(request, config) {
-  if (config.enableAuth && !authenticate(request, config)) { 
+  if (config.enableAuth && !authenticate(request, config)) {
     return Response.redirect(`${new URL(request.url).origin}/`, 302);
   }
 
@@ -859,19 +859,23 @@ function generateUploadPage() {
         });
 
         xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
+          try {
             const data = JSON.parse(xhr.responseText);
-          uploadedUrls.push(data.url);
-          updateUrlArea();
-          preview.classList.add('success');
-          } else {
-          preview.classList.add('error');
-        }
-        });
-
-        xhr.addEventListener('error', () => {
-          progressText.textContent = '上传失败';
-          preview.classList.add('error');
+            const progressText = preview.querySelector('.progress-text');          
+            if (xhr.status >= 200 && xhr.status < 300 && data.status === 1) {
+              progressText.textContent = data.msg;
+              uploadedUrls.push(data.url);
+              updateUrlArea();
+              preview.classList.add('success');
+            } else {
+              const errorMsg = data.msg || data.error || '未知错误';
+              progressText.textContent = errorMsg;
+              preview.classList.add('error');
+            }
+          } catch (e) {
+            preview.querySelector('.progress-text').textContent = '✗ 响应解析失败';
+            preview.classList.add('error');
+          }
         });
 
         const formData = new FormData();
