@@ -226,7 +226,7 @@ async function handleAdminRequest(request, config) {
           <div>${createdAt}</div>
         </div>
         <div class="file-actions">
-          <button class="btn btn-copy" onclick="copyUrl('${file.url}')">分享</button>
+          <button class="btn btn-copy" onclick="showQRCode('${file.url}')">分享</button>
           <a class="btn btn-down" href="${file.url}" download="${fileName}">下载</a>
           <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
         </div>
@@ -1079,6 +1079,42 @@ function generateAdminPage(fileCards) {
       .backup:hover {
         text-decoration: underline;
       }
+      .qr-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      .qr-content {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      }
+      #qrcode {
+        margin: 15px 0;
+      }
+      .qr-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 15px;
+      }
+      .qr-copy, .qr-close {
+        padding: 8px 20px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -1091,8 +1127,18 @@ function generateAdminPage(fileCards) {
       <div class="grid" id="fileGrid">
         ${fileCards}
       </div>
+      <div id="qrModal" class="qr-modal">
+        <div class="qr-content">
+          <div id="qrcode"></div>
+          <div class="qr-buttons">
+            <button class="qr-copy" onclick="handleCopyUrl()">复制链接</button>
+            <button class="qr-close" onclick="closeQRModal()">关闭</button>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
     <script>
       // 添加背景图相关函数
       async function setBingBackground() {
@@ -1124,9 +1170,52 @@ function generateAdminPage(fileCards) {
         });
       });
 
-      function copyUrl(url) {
-        navigator.clipboard.writeText(url);
-        alert('已复制到剪贴板');
+      // 添加分享二维码功能
+      let currentShareUrl = '';
+      function showQRCode(url) {
+        currentShareUrl = url; // 存储当前分享的URL
+        const modal = document.getElementById('qrModal');
+        const qrcodeDiv = document.getElementById('qrcode');
+        const copyBtn = document.querySelector('.qr-copy');
+        copyBtn.textContent = '复制链接';
+        copyBtn.disabled = false;
+        qrcodeDiv.innerHTML = '';
+        new QRCode(qrcodeDiv, {
+          text: url,
+          width: 200,
+          height: 200,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+        modal.style.display = 'flex';
+      }   
+
+      function handleCopyUrl() {
+        navigator.clipboard.writeText(currentShareUrl)
+          .then(() => {
+            const copyBtn = document.querySelector('.qr-copy');
+            copyBtn.textContent = '✔ 已复制';
+            copyBtn.disabled = true;
+            setTimeout(() => {
+              copyBtn.textContent = '复制链接';
+              copyBtn.disabled = false;
+            }, 5000);
+          })
+          .catch(err => {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动复制');
+          });
+      }
+
+      function closeQRModal() {
+        document.getElementById('qrModal').style.display = 'none';
+      }      
+      window.onclick = function(event) {
+        const modal = document.getElementById('qrModal');
+        if (event.target === modal) {
+          modal.style.display = 'none';
+        }
       }
 
       async function deleteFile(url) {
