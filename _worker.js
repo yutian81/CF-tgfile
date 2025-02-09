@@ -4,6 +4,7 @@ async function initDatabase(config) {
     CREATE TABLE IF NOT EXISTS files (
       url TEXT PRIMARY KEY,
       fileId TEXT NOT NULL,
+      message_id INTEGER NOT NULL,
       created_at INTEGER NOT NULL,
       file_name TEXT,
       file_size INTEGER,
@@ -39,7 +40,7 @@ export default {
       '/admin': () => handleAdminRequest(request, config),
       '/delete': () => handleDeleteRequest(request, config),
       '/search': () => handleSearchRequest(request, config),
-      '/bing': () => handleBingImagesRequest(request, config)
+      '/bing': () => handleBingImagesRequest(request)
     };
     const handler = routes[pathname];
     if (handler) {
@@ -140,21 +141,29 @@ async function handleUploadRequest(request, config) {
       
       if (!file) throw new Error('未找到文件');
       if (file.size > config.maxSizeMB * 1024 * 1024) throw new Error(`文件大小超过${config.maxSizeMB}MB限制`);
+      
+      const isImage = file.type.startsWith('image/');
+      const method = isImage ? 'sendPhoto' : 'sendDocument';
+      const fieldName = isImage ? 'photo' : 'document';
+      
       const tgFormData = new FormData();
       tgFormData.append('chat_id', config.tgChatId);
-      tgFormData.append('document', file);
-  
+      tgFormData.append(fieldName, file);
+
       const tgResponse = await fetch(
-        `https://api.telegram.org/bot${config.tgBotToken}/sendDocument`,
+        `https://api.telegram.org/bot${config.tgBotToken}/${method}`,
         { method: 'POST', body: tgFormData }
       );
   
       if (!tgResponse.ok) throw new Error('Telegram上传失败');  
       const tgData = await tgResponse.json();
-      const document = tgData.result?.document;
-      const fileId = document?.file_id;
-      
+      const result = tgData.result;
+      const messageId = tgData.result?.message_id;
+      const fileId = result?.document?.file_id || 
+                    (result?.photo && result.photo[result.photo.length-1]?.file_id);     
       if (!fileId) throw new Error('未获取到文件ID');
+      if (!messageId) throw new Error('未获取到消息ID');
+
       const time = Date.now();
       const timestamp = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
       const ext = file.name.split('.').pop();
@@ -163,16 +172,17 @@ async function handleUploadRequest(request, config) {
       // const url = `https://${config.domain}/${datetime}-${time}.${ext}`; 
       
       await config.database.prepare(`
-        INSERT INTO files (url, fileId, created_at, file_name, file_size, mime_type) 
-        VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(
-          url,
-          fileId,
-          timestamp,
-          file.name,
-          file.size,
-          file.type || getContentType(ext)
-        ).run();
+      INSERT INTO files (url, fileId, message_id, created_at, file_name, file_size, mime_type) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        url,
+        fileId,
+        messageId,
+        timestamp,
+        file.name,
+        file.size,
+        file.type || getContentType(ext)
+      ).run();
   
       return new Response(
         JSON.stringify({ status: 1, msg: "✔ 上传成功", url }),
@@ -214,7 +224,7 @@ async function handleAdminRequest(request, config) {
           <div>${createdAt}</div>
         </div>
         <div class="file-actions">
-          <button class="btn btn-copy" onclick="copyUrl('${file.url}')">复制链接</button>
+          <button class="btn btn-copy" onclick="copyUrl('${file.url}')">分享</button>
           <a class="btn btn-down" href="${file.url}" download="${fileName}">下载</a>
           <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
         </div>
@@ -386,6 +396,25 @@ async function handleDeleteRequest(request, config) {
       });
     }
 
+    const file = await config.database.prepare(
+      'SELECT fileId, message_id FROM files WHERE url = ?'
+    ).bind(url).first();    
+    if (!file) {
+      return new Response(JSON.stringify({ error: '文件不存在' }), { 
+        status: 404, 
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }    
+
+    // 删除TG频道消息记录
+    const deleteResponse = await fetch(
+      `https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`
+    );
+    if (!deleteResponse.ok) {
+      const errorData = await deleteResponse.json();
+      throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
+    }
+    // 删除数据库表数据
     await config.database.prepare('DELETE FROM files WHERE url = ?').bind(url).run();
     return new Response(
       JSON.stringify({ success: true }),
@@ -395,7 +424,10 @@ async function handleDeleteRequest(request, config) {
   } catch (error) {
     console.error(`[Delete Error] ${error.message}`);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message.includes('message to delete not found') ? 
+              '文件已从频道移除' : error.message 
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' }}
     );
   }
