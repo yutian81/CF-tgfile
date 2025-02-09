@@ -200,6 +200,7 @@ async function handleUploadRequest(request, config) {
       );
     }
 }
+
 // 处理文件管理和预览
 async function handleAdminRequest(request, config) {
   if (config.enableAuth && !authenticate(request, config)) { 
