@@ -280,7 +280,7 @@ function getPreviewHtml(url) {
   const isPdf = ext === 'pdf';
   
   if (isImage) {
-    return `<img src="${url}" alt="预览">`; 
+    return `<img src="${url}" alt="预览">`;
   } else if (isVideo) {
     return `<video src="${url}" controls></video>`;
   } else if (isAudio) {
@@ -1000,7 +1000,7 @@ function generateAdminPage(fileCards) {
       }
       .header {
         background: rgba(255, 255, 255, 0.7);
-        padding: 20px;
+        padding: 5px 40px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         margin-bottom: 20px;
@@ -1017,7 +1017,7 @@ function generateAdminPage(fileCards) {
       }
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 20px;
       }
       .file-card {
@@ -1027,8 +1027,8 @@ function generateAdminPage(fileCards) {
         overflow: hidden;
       }
       .file-preview {
-        height: 200px;
-        background: rgba(255, 255, 255, 0.5); 
+        height: 150px;
+        background: rgba(255, 255, 255, 0.5);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1039,13 +1039,16 @@ function generateAdminPage(fileCards) {
         object-fit: contain;
       }
       .file-info {
-        padding: 15px;
+        padding: 8px;
+        font-size: 14px;
       }
       .file-actions {
-        padding: 15px;
+        padding: 10px;
         border-top: 1px solid #eee;
         display: flex;
         justify-content: space-between;
+        align-items: flex-end;
+        font-size: 14px;
       }
       .btn {
         padding: 5px 10px;
@@ -1122,7 +1125,7 @@ function generateAdminPage(fileCards) {
       });
 
       function copyUrl(url) {
-        navigator.clipboard.writeText(url); 
+        navigator.clipboard.writeText(url);
         alert('已复制到剪贴板');
       }
 
