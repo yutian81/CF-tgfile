@@ -172,8 +172,8 @@ async function handleUploadRequest(request, config) {
       // const url = `https://${config.domain}/${datetime}-${time}.${ext}`; 
       
       await config.database.prepare(`
-      INSERT INTO files (url, fileId, message_id, created_at, file_name, file_size, mime_type) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO files (url, fileId, message_id, created_at, file_name, file_size, mime_type) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `).bind(
         url,
         fileId,
@@ -205,7 +205,9 @@ async function handleAdminRequest(request, config) {
   }
 
   const files = await config.database.prepare(
-    'SELECT url, fileId, created_at, file_name, file_size FROM files ORDER BY created_at DESC'
+    `SELECT url, fileId, message_id, created_at, file_name, file_size, mime_type
+    FROM files
+    ORDER BY created_at DESC`
   ).all();
 
   const fileList = files.results || [];
@@ -215,12 +217,12 @@ async function handleAdminRequest(request, config) {
     const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
     return `
       <div class="file-card" data-url="${file.url}">
-        <div class="file-preview"> 
+        <div class="file-preview">
           ${getPreviewHtml(file.url)}
         </div>
-        <div class="file-info"> 
+        <div class="file-info">
           <div>${fileName}</div>
-          <div>${fileSize}</div> 
+          <div>${fileSize}</div>
           <div>${createdAt}</div>
         </div>
         <div class="file-actions">
@@ -234,7 +236,7 @@ async function handleAdminRequest(request, config) {
 
   const html = generateAdminPage(fileCards);
   return new Response(html, {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8' } 
+    headers: { 'Content-Type': 'text/html;charset=UTF-8' }
   });
 }
 
@@ -248,7 +250,7 @@ async function handleSearchRequest(request, config) {
     const { query } = await request.json();
     const searchPattern = `%${query}%`;    
     const files = await config.database.prepare(
-      `SELECT url, fileId, created_at, file_name, file_size 
+      `SELECT url, fileId, message_id, created_at, file_name, file_size, mime_type
        FROM files 
        WHERE file_name LIKE ? ESCAPE '!'
        COLLATE NOCASE
