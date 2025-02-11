@@ -1,3 +1,6 @@
+// 由于tg的限制，虽然可以上传超过20M的文件，但无法返回直链地址
+// 因此修改代码，当文件大于20MB时，直接阻止上传
+
 // 数据库初始化函数
 async function initDatabase(config) {
   await config.database.prepare(`
@@ -48,7 +51,7 @@ export default {
       '/admin': () => handleAdminRequest(request, config),
       '/delete': () => handleDeleteRequest(request, config),
       '/search': () => handleSearchRequest(request, config),
-      '/bing': () => handleBingImagesRequest(request)
+      '/bing': handleBingImagesRequest
     };
     const handler = routes[pathname];
     if (handler) {
@@ -497,32 +500,43 @@ function getContentType(ext) {
   return types[ext] || 'application/octet-stream';
 }
 
-async function handleBingImagesRequest(request) {
+async function handleBingImagesRequest() {
   const cache = caches.default;
   const cacheKey = new Request('https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=5');
-  const cachedResponse = await cache.match(cacheKey);
-  if (cachedResponse) return cachedResponse;
   
-  const res = await fetch(cacheKey);
-  if (!res.ok) {
-    return new Response('请求 Bing API 失败', { status: res.status });
+  const cachedResponse = await cache.match(cacheKey);
+  if (cachedResponse) {
+    console.log('Returning cached response');
+    return cachedResponse;
   }
   
-  const bingData = await res.json();
-  const images = bingData.images.map(image => ({ url: `https://cn.bing.com${image.url}` }));
-  const returnData = { status: true, message: "操作成功", data: images };
-  
-  const response = new Response(JSON.stringify(returnData), { 
-    status: 200, 
-    headers: { 
-      'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=21600',
-      'Access-Control-Allow-Origin': '*'
-    } 
-  });
-  
-  await cache.put(cacheKey, response.clone());
-  return response;
+  try {
+    const res = await fetch(cacheKey);
+    if (!res.ok) {
+      console.error(`Bing API 请求失败，状态码：${res.status}`);
+      return new Response('请求 Bing API 失败', { status: res.status });
+    }
+    
+    const bingData = await res.json();
+    const images = bingData.images.map(image => ({ url: `https://cn.bing.com${image.url}` }));
+    const returnData = { status: true, message: "操作成功", data: images };
+    
+    const response = new Response(JSON.stringify(returnData), { 
+      status: 200, 
+      headers: { 
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=21600',
+        'Access-Control-Allow-Origin': '*' 
+      }
+    });
+    
+    await cache.put(cacheKey, response.clone());
+    console.log('响应数据已缓存');
+    return response;
+  } catch (error) {
+    console.error('请求 Bing API 过程中发生错误:', error);
+    return new Response('请求 Bing API 失败', { status: 500 });
+  }
 }
 
 // 文件大小计算函数
@@ -542,7 +556,9 @@ function generateLoginPage() {
   return `<!DOCTYPE html>
   <html lang="zh-CN">
   <head>
-    <meta charset="UTF-8">
+  <link rel="shortcut icon" href="https://pan.811520.xyz/2025-02/1739241502-tgfile-favicon.ico" type="image/x-icon">
+  <meta name="description" content="Telegram文件存储与分享平台">
+  <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录</title>
     <style>
@@ -614,9 +630,9 @@ function generateLoginPage() {
       // 添加背景图相关函数
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing');
+          const response = await fetch('/bing', { cache: 'no-store' });  // 禁用缓存
           const data = await response.json();
-          if (data.status && data.data.length > 0) {
+          if (data.status && data.data && data.data.length > 0) {
             const randomIndex = Math.floor(Math.random() * data.data.length);
             document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
           }
@@ -661,7 +677,9 @@ function generateUploadPage() {
   return `<!DOCTYPE html>
   <html lang="zh-CN">
   <head>
-    <meta charset="UTF-8">
+  <link rel="shortcut icon" href="https://pan.811520.xyz/2025-02/1739241502-tgfile-favicon.ico" type="image/x-icon">
+  <meta name="description" content="Telegram文件存储与分享平台">
+  <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文件上传</title>
     <style>
@@ -834,9 +852,9 @@ function generateUploadPage() {
       // 添加背景图相关函数
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing');
+          const response = await fetch('/bing', { cache: 'no-store' });  // 禁用缓存
           const data = await response.json();
-          if (data.status && data.data.length > 0) {
+          if (data.status && data.data && data.data.length > 0) {
             const randomIndex = Math.floor(Math.random() * data.data.length);
             document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
           }
@@ -1026,7 +1044,9 @@ function generateAdminPage(fileCards) {
   return `<!DOCTYPE html>
   <html lang="zh-CN">
   <head>
-    <meta charset="UTF-8">
+  <link rel="shortcut icon" href="https://pan.811520.xyz/2025-02/1739241502-tgfile-favicon.ico" type="image/x-icon">
+  <meta name="description" content="Telegram文件存储与分享平台">
+  <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文件管理</title>
     <style>
@@ -1185,9 +1205,9 @@ function generateAdminPage(fileCards) {
       // 添加背景图相关函数
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing');
+          const response = await fetch('/bing', { cache: 'no-store' });  // 禁用缓存
           const data = await response.json();
-          if (data.status && data.data.length > 0) {
+          if (data.status && data.data && data.data.length > 0) {
             const randomIndex = Math.floor(Math.random() * data.data.length);
             document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
           }
