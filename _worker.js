@@ -263,7 +263,7 @@ async function handleAdminRequest(request, config) {
         </div>
         <div class="file-actions">
           <button class="btn btn-copy" onclick="showQRCode('${file.url}')">分享</button>
-          <a class="btn btn-down" href="${file.url}" download="${fileName}">下载</a>
+          <a class="btn btn-down" href="${file.url}" download="${fileName}" target="_blank">下载</a>
           <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
         </div>
       </div>
