@@ -1062,12 +1062,22 @@ function generateAdminPage(fileCards) {
       }
       .header {
         background: rgba(255, 255, 255, 0.7);
-        padding: 5px 40px;
+        padding: 20px 30px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         margin-bottom: 20px;
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
+        align-items: center;
+      }
+      h2 {
+        margin: 0;
+        text-align: left;
+      }
+      .right-content {
+        display: flex;
+        gap: 40px;
+        margin-left: auto;
         align-items: center;
       }
       .search {
@@ -1076,6 +1086,16 @@ function generateAdminPage(fileCards) {
         border-radius: 4px;
         width: 300px;
         background: rgba(255, 255, 255, 0.5);
+      }
+      .backup {
+        display: inline-block;
+        margin-left: auto;
+        margin-right: 40px;
+        color: #007bff;
+        text-decoration: none;
+      }
+      .backup:hover {
+        text-decoration: underline;
       }
       .grid {
         display: grid;
@@ -1101,7 +1121,7 @@ function generateAdminPage(fileCards) {
         object-fit: contain;
       }
       .file-info {
-        padding: 8px;
+        padding: 10px;
         font-size: 14px;
       }
       .file-actions {
@@ -1111,6 +1131,9 @@ function generateAdminPage(fileCards) {
         justify-content: space-between;
         align-items: flex-end;
         font-size: 12px;
+      }
+      .file-actions .btn {
+        font-size: inherit;  /* 让所有按钮继承父容器的字体大小 */
       }
       .btn {
         padding: 5px 10px;
@@ -1130,16 +1153,6 @@ function generateAdminPage(fileCards) {
         background: #007bff;
         color: white;
         text-decoration: none;
-      }
-      .backup {
-        display: inline-block;
-        margin-left: auto;
-        margin-right: 40px;
-        color: #007bff;
-        text-decoration: none;
-      }
-      .backup:hover {
-        text-decoration: underline;
       }
       .qr-modal {
         display: none;
@@ -1182,9 +1195,11 @@ function generateAdminPage(fileCards) {
   <body>
     <div class="container">
       <div class="header">
-        <h1>文件管理</h1>
-        <a href="/upload" class="backup">返回</a>
-        <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
+        <h2>文件管理</h2>
+        <div class="right-content">
+          <a href="/upload" class="backup">返回</a>
+          <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
+        </div>
       </div>
       <div class="grid" id="fileGrid">
         ${fileCards}
