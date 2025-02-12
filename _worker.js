@@ -248,8 +248,11 @@ async function handleAdminRequest(request, config) {
     const fileName = file.file_name;
     const fileSize = formatSize(file.file_size || 0);
     const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
+    // 文件预览信息和操作元素
     return `
       <div class="file-card" data-url="${file.url}">
+        <!-- 这是一个复选框元素 -->
+        <!-- <input type="checkbox" class="file-checkbox"> -->
         <div class="file-preview">
           ${getPreviewHtml(file.url)}
         </div>
@@ -267,7 +270,20 @@ async function handleAdminRequest(request, config) {
     `;
   }).join('');
 
-  const html = generateAdminPage(fileCards);
+  // 二维码分享元素
+  const qrModal = `
+    <div id="qrModal" class="qr-modal">
+      <div class="qr-content">
+        <div id="qrcode"></div>
+        <div class="qr-buttons">
+          <button class="qr-copy" onclick="handleCopyUrl()">复制链接</button>
+          <button class="qr-close" onclick="closeQRModal()">关闭</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const html = generateAdminPage(fileCards, qrModal);
   return new Response(html, {
     headers: { 'Content-Type': 'text/html;charset=UTF-8' }
   });
@@ -441,18 +457,27 @@ async function handleDeleteRequest(request, config) {
       });
     }    
 
-    // 删除TG频道消息记录
-    const deleteResponse = await fetch(
-      `https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`
-    );
-    if (!deleteResponse.ok) {
-      const errorData = await deleteResponse.json();
-      throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
-    }
-    // 删除数据库表数据
+    let deleteError = null;
+
+    try {
+      const deleteResponse = await fetch(
+        `https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`
+      );
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.json();
+        console.error(`[Telegram API Error] ${JSON.stringify(errorData)}`);
+        throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
+      }
+    } catch (error) { deleteError = error.message; }
+
+    // 删除数据库表数据，即使Telegram删除失败也会删除数据库记录
     await config.database.prepare('DELETE FROM files WHERE url = ?').bind(url).run();
+    
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true,
+        message: deleteError ? `文件已从数据库删除，但Telegram消息删除失败: ${deleteError}` : '文件删除成功'
+      }),
       { headers: { 'Content-Type': 'application/json' }}
     );
 
@@ -1040,7 +1065,7 @@ function generateUploadPage() {
 }
 
 // 生成文件管理页面 /admin
-function generateAdminPage(fileCards) {
+function generateAdminPage(fileCards, qrModal) {
   return `<!DOCTYPE html>
   <html lang="zh-CN">
   <head>
@@ -1107,6 +1132,7 @@ function generateAdminPage(fileCards) {
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         overflow: hidden;
+        position: relative;
       }
       .file-preview {
         height: 150px;
@@ -1135,6 +1161,12 @@ function generateAdminPage(fileCards) {
       .file-actions .btn {
         font-size: inherit;  /* 让所有按钮继承父容器的字体大小 */
       }
+      /* .file-checkbox {
+        position: absolute;
+        left: 5px;
+        top: 5px;
+        z-index: 10;
+      } */
       .btn {
         padding: 5px 10px;
         border: none;
@@ -1204,18 +1236,12 @@ function generateAdminPage(fileCards) {
       <div class="grid" id="fileGrid">
         ${fileCards}
       </div>
-      <div id="qrModal" class="qr-modal">
-        <div class="qr-content">
-          <div id="qrcode"></div>
-          <div class="qr-buttons">
-            <button class="qr-copy" onclick="handleCopyUrl()">复制链接</button>
-            <button class="qr-close" onclick="closeQRModal()">关闭</button>
-          </div>
-        </div>
-      </div>
+      ${qrModal}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+    <!-- 引入 JSZip 库 -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script> -->
     <script>
       // 添加背景图相关函数
       async function setBingBackground() {
@@ -1305,12 +1331,16 @@ function generateAdminPage(fileCards) {
             body: JSON.stringify({ url })
           });
 
-          if (!response.ok) throw new Error('删除失败');
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || '删除失败');
+          }
           
           const card = document.querySelector(\`[data-url="\${url}"]\`);
-          card.remove();
+          if (card) card.remove();
+          alert('文件删除成功');
         } catch (error) {
-          alert('删除失败: ' + error.message);
+          alert('文件删除失败: ' + error.message); // 显示错误的详细信息
         }
       }
     </script>
