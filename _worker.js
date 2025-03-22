@@ -326,16 +326,13 @@ function getPreviewHtml(url) {
   const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'icon'].includes(ext);
   const isVideo = ['mp4', 'webm'].includes(ext);
   const isAudio = ['mp3', 'wav', 'ogg'].includes(ext);
-  const isPdf = ext === 'pdf';
-  
+
   if (isImage) {
     return `<img src="${url}" alt="预览">`;
   } else if (isVideo) {
     return `<video src="${url}" controls></video>`;
   } else if (isAudio) {
     return `<audio src="${url}" controls></audio>`;
-  } else if (isPdf) {
-    return `<iframe src="${url}" width="100%" height="500px"></iframe>`;
   } else {
     return `<div style="font-size: 48px">📄</div>`;
   }
