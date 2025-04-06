@@ -48,7 +48,7 @@ export default {
     const apiRoutes = {
       '/api/upload': () => handleApiUpload(request, config),
       '/api/files': () => handleApiFileList(request, config),
-      '/api/files/(.+)': () => handleApiFileOps(request, config),
+      '/api/files/([^/]+)$': () => handleApiFileOps(request, config),
       '/api/search': () => handleApiSearch(request, config)
     };
     // 检查API请求
