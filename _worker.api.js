@@ -793,7 +793,13 @@ async function generateLoginPage() {
 // 生成文件上传页面 /upload
 async function generateUploadPage() {
   const baseHtml = await loadTemplate('upload.html');
-  return render(baseHtml, { pageTitle: '文件上传' });
+  return render(baseHtml, { 
+    pageTitle: '文件上传',
+    githubUrl:'https://github.com/yutian81/CF-tgfile',
+    githubName:'Yutian81 GitHub',
+    blogUrl:'https://blog.811520.xyz/',
+    blogName:'青云志Blog'
+  });
 }
 
 // 生成文件管理页面 /admin
