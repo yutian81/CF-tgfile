@@ -29,7 +29,8 @@ export default {
       tgBotToken: env.TG_BOT_TOKEN,
       tgChatId: env.TG_CHAT_ID,
       cookie: Number(env.COOKIE) || 7, // cookie有效期默认为 7
-      maxSizeMB: Number(env.MAX_SIZE_MB) || 20 // 上传单文件大小默认为20M
+      maxSizeMB: Number(env.MAX_SIZE_MB) || 20, // 上传单文件大小默认为20M
+      apiKey: env.API_KEY
     };
 
     // 初始化数据库
