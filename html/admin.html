@@ -5,7 +5,7 @@
     <meta name="description" content="Telegram文件存储与分享平台">
     <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>文件管理</title>
+      <title>{{pageTitle}}</title>
       <style>
         body {
           font-family: Arial, sans-serif;
@@ -159,16 +159,16 @@
     <body>
       <div class="container">
         <div class="header">
-          <h2>文件管理</h2>
+          <h2>{{pageTitle}}</h2>
           <div class="right-content">
             <a href="/upload" class="backup">返回</a>
             <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
           </div>
         </div>
         <div class="grid" id="fileGrid">
-          ${fileCards}
+          {{FILE_CARDS}}
         </div>
-        ${qrModal}
+        {{QR_MODAL}}
       </div>
   
       <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
