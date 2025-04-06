@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+    <link rel="shortcut icon" href="https://pan.811520.xyz/2025-02/1739241502-tgfile-favicon.ico" type="image/x-icon">
+    <meta name="description" content="Telegram文件存储与分享平台">
+    <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>文件管理</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 20px;
+          background: #f5f5f5;
+        }
+        .container {
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+        .header {
+          background: rgba(255, 255, 255, 0.7);
+          padding: 20px 30px;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          margin-bottom: 20px;
+          display: flex;
+          justify-content: flex-start;
+          align-items: center;
+        }
+        h2 {
+          margin: 0;
+          text-align: left;
+        }
+        .right-content {
+          display: flex;
+          gap: 40px;
+          margin-left: auto;
+          align-items: center;
+        }
+        .search {
+          padding: 8px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          width: 300px;
+          background: rgba(255, 255, 255, 0.5);
+        }
+        .backup {
+          display: inline-block;
+          margin-left: auto;
+          margin-right: 40px;
+          color: #007bff;
+          text-decoration: none;
+        }
+        .backup:hover {
+          text-decoration: underline;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 20px;
+        }
+        .file-card {
+          background: rgba(255, 255, 255, 0.7);
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          overflow: hidden;
+          position: relative;
+        }
+        .file-preview {
+          height: 150px;
+          background: rgba(255, 255, 255, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .file-preview img, .file-preview video {
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
+        }
+        .file-info {
+          padding: 10px;
+          font-size: 14px;
+        }
+        .file-actions {
+          padding: 10px;
+          border-top: 1px solid #eee;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          font-size: 12px;
+        }
+        .file-actions .btn {
+          font-size: inherit;  /* 让所有按钮继承父容器的字体大小 */
+        }
+        /* .file-checkbox {
+          position: absolute;
+          left: 5px;
+          top: 5px;
+          z-index: 10;
+        } */
+        .btn {
+          padding: 5px 10px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .btn-delete {
+          background: #dc3545;
+          color: white;
+        }
+        .btn-copy {
+          background: #007bff;
+          color: white;
+        }
+        .btn-down {
+          background: #007bff;
+          color: white;
+          text-decoration: none;
+        }
+        .qr-modal {
+          display: none;
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+        .qr-content {
+          background: white;
+          padding: 20px;
+          border-radius: 10px;
+          text-align: center;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        #qrcode {
+          margin: 5px 0;
+        }
+        .qr-buttons {
+          display: flex;
+          gap: 10px;
+          justify-content: center;
+          margin-top: 15px;
+        }
+        .qr-copy, .qr-close {
+          padding: 8px 20px;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2>文件管理</h2>
+          <div class="right-content">
+            <a href="/upload" class="backup">返回</a>
+            <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
+          </div>
+        </div>
+        <div class="grid" id="fileGrid">
+          ${fileCards}
+        </div>
+        ${qrModal}
+      </div>
+  
+      <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+      <!-- 引入 JSZip 库 -->
+      <!-- <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script> -->
+      <script>
+        // 添加背景图相关函数
+        async function setBingBackground() {
+          try {
+            const response = await fetch('/bing', { cache: 'no-store' });  // 禁用缓存
+            const data = await response.json();
+            if (data.status && data.data && data.data.length > 0) {
+              const randomIndex = Math.floor(Math.random() * data.data.length);
+              document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
+            }
+          } catch (error) {
+            console.error('获取背景图失败:', error);
+          }
+        }
+        // 页面加载时设置背景图
+        setBingBackground(); 
+        // 每小时更新一次背景图
+        setInterval(setBingBackground, 3600000);
+  
+        const searchInput = document.getElementById('searchInput');
+        const fileGrid = document.getElementById('fileGrid');
+        const fileCards = Array.from(fileGrid.children);
+  
+        searchInput.addEventListener('input', (e) => {
+          const searchTerm = e.target.value.toLowerCase();
+          fileCards.forEach(card => {
+            const fileName = card.querySelector('.file-info div:first-child').textContent.toLowerCase();
+            card.style.display = fileName.includes(searchTerm) ? '' : 'none';
+          });
+        });
+  
+        // 添加分享二维码功能
+        let currentShareUrl = '';
+        function showQRCode(url) {
+          currentShareUrl = url; // 存储当前分享的URL
+          const modal = document.getElementById('qrModal');
+          const qrcodeDiv = document.getElementById('qrcode');
+          const copyBtn = document.querySelector('.qr-copy');
+          copyBtn.textContent = '复制链接';
+          copyBtn.disabled = false;
+          qrcodeDiv.innerHTML = '';
+          new QRCode(qrcodeDiv, {
+            text: url,
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+          });
+          modal.style.display = 'flex';
+        }   
+  
+        function handleCopyUrl() {
+          navigator.clipboard.writeText(currentShareUrl)
+            .then(() => {
+              const copyBtn = document.querySelector('.qr-copy');
+              copyBtn.textContent = '✔ 已复制';
+              copyBtn.disabled = true;
+              setTimeout(() => {
+                copyBtn.textContent = '复制链接';
+                copyBtn.disabled = false;
+              }, 5000);
+            })
+            .catch(err => {
+              console.error('复制失败:', err);
+              alert('复制失败，请手动复制');
+            });
+        }
+  
+        function closeQRModal() {
+          document.getElementById('qrModal').style.display = 'none';
+        }      
+        window.onclick = function(event) {
+          const modal = document.getElementById('qrModal');
+          if (event.target === modal) {
+            modal.style.display = 'none';
+          }
+        }
+  
+        async function deleteFile(url) {
+          if (!confirm('确定要删除这个文件吗？')) return;
+          
+          try {
+            const response = await fetch('/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url })
+            });
+  
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || '删除失败');
+            }
+            
+            const card = document.querySelector(\`[data-url="\${url}"]\`);
+            if (card) card.remove();
+            alert('文件删除成功');
+          } catch (error) {
+            alert('文件删除失败: ' + error.message); // 显示错误的详细信息
+          }
+        }
+      </script>
+    </body>
+</html>
