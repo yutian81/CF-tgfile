@@ -787,23 +787,21 @@ function formatSize(bytes) {
 // 登录页面生成函数 /login
 async function generateLoginPage() {
   const baseHtml = await loadTemplate('login.html');
-  return render(baseHtml, {
-    pageTitle: '用户登录',
-  });
+  return render(baseHtml, { pageTitle: '用户登录', });
 }
 
 // 生成文件上传页面 /upload
-function generateUploadPage() {
+async function generateUploadPage() {
   const baseHtml = await loadTemplate('upload.html');
-  return render(baseHtml, {
-    pageTitle: '文件上传',
-  });
+  return render(baseHtml, { pageTitle: '文件上传' });
 }
 
 // 生成文件管理页面 /admin
-function generateAdminPage(fileCards, qrModal) {
+async function generateAdminPage(fileCards, qrModal) {
   const baseHtml = await loadTemplate('admin.html');
   return render(baseHtml, {
     pageTitle: '文件管理',
+    FILE_CARDS: fileCards.join(''),
+    QR_MODAL: qrModal
   });
 }
