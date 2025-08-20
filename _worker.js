@@ -718,8 +718,9 @@ function generateUploadPage() {
       .container {
         max-width: 800px;
         width: 100%;
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(5px);
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
         padding: 10px 40px 20px 40px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -740,6 +741,9 @@ function generateUploadPage() {
         border-radius: 8px;
         transition: all 0.3s;
         box-sizing: border-box;
+      }
+      .upload-area p {
+        line-height: 2;
       }
       .upload-area.dragover {
         border-color: #007bff;
@@ -779,10 +783,14 @@ function generateUploadPage() {
         color: #333;       
       }
       .admin-link {
+        background: #007BFF;
+        padding: 5px 10px;
+        border: none;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #fff;     
         display: inline-block;
         margin-left: auto;
-        color: #007bff;
-        text-decoration: none;
       }
       .admin-link:hover {
         text-decoration: underline;
@@ -845,10 +853,10 @@ function generateUploadPage() {
     <div class="container">
       <div class="header">
         <h1>文件上传</h1>
-        <a href="/admin" class="admin-link">进入管理页面</a>
+        <a href="/admin" class="admin-link">文件管理</a>
       </div>
       <div class="upload-area" id="uploadArea">
-        <p>点击选择 或 拖拽文件到此处</p>
+        <p>点击选择 或 拖拽文件到此处<br>支持 Ctrl+V 粘贴上传</p>
         <input type="file" id="fileInput" multiple style="display: none">
       </div>
       <div class="preview-area" id="previewArea"></div>
@@ -1082,50 +1090,73 @@ function generateAdminPage(fileCards, qrModal) {
         max-width: 1200px;
         margin: 0 auto;
       }
+
       .header {
-        background: rgba(255, 255, 255, 0.7);
-        padding: 20px 30px;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 20px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         margin-bottom: 20px;
         display: flex;
-        justify-content: flex-start;
+        flex-wrap: wrap; /* 移动端支持换行 */
         align-items: center;
       }
-      h2 {
+      
+      .header h2 {
         margin: 0;
-        text-align: left;
+        flex: 1;
+        min-width: 0;
       }
-      .right-content {
-        display: flex;
-        gap: 40px;
-        margin-left: auto;
-        align-items: center;
+      
+      .header .backup {
+        background: #007BFF;
+        padding: 5px 10px;
+        border: none;
+        border-radius: 4px;
+        margin: 0 20px;
+        text-decoration: none;
+        color: #fff;
+        text-decoration: none;
       }
-      .search {
+      
+      .header .backup:hover {
+        text-decoration: underline;
+      }
+      
+      .header .search {
+        flex: 1 1 100%;
+        max-width: 100%;
+        margin-top: 10px;
         padding: 8px;
         border: 1px solid #ddd;
         border-radius: 4px;
-        width: 300px;
-        background: rgba(255, 255, 255, 0.5);
+        background: rgba(255,255,255,0.5);
+        box-sizing: border-box;
       }
-      .backup {
-        display: inline-block;
-        margin-left: auto;
-        margin-right: 40px;
-        color: #007bff;
-        text-decoration: none;
+      
+      /* 桌面端：不换行，搜索框固定宽度 */
+      @media (min-width: 768px) {
+        .header {
+          flex-wrap: nowrap;
+        }
+        .header .search {
+          flex: unset;
+          width: 300px;
+          margin-top: 0;
+        }
       }
-      .backup:hover {
-        text-decoration: underline;
-      }
+
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 20px;
       }
       .file-card {
-        background: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         overflow: hidden;
@@ -1133,7 +1164,6 @@ function generateAdminPage(fileCards, qrModal) {
       }
       .file-preview {
         height: 150px;
-        background: rgba(255, 255, 255, 0.5);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1221,34 +1251,25 @@ function generateAdminPage(fileCards, qrModal) {
         align-items: center;
         flex-wrap: wrap;
         gap: 10px;
-        margin: 20px 0;
       }
     
       #pagination .btn-page {
         padding: 6px 14px;
         border-radius: 8px;
         border: none;
-        background-color: #fff;
-        color: #007bff;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #0A0A0A;
         cursor: pointer;
         transition: all 0.2s;
         min-width: 40px;
         text-align: center;
         font-size: 14px;
         box-shadow: none;
+        margin: 20px 0;
       }
 
-      #pagination .page-info {
-        border-radius: 8px;
-        border: none;
-        background-color: #FAE7D8;
-        color: #0A0A0A !important;
-        transition: all 0.2s;
-        text-align: center;
-        font-size: 14px;
-        box-shadow: none;
-      }      
-    
       #pagination .btn-page:hover {
         background-color: #007bff;
         color: #fff;
@@ -1278,10 +1299,8 @@ function generateAdminPage(fileCards, qrModal) {
     <div class="container">
       <div class="header">
         <h2>文件管理</h2>
-        <div class="right-content">
-          <a href="/upload" class="backup">返回</a>
-          <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
-        </div>
+        <a href="/upload" class="backup">返回</a>
+        <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
       </div>
       <div class="grid" id="fileGrid">
         ${fileCards}
@@ -1294,7 +1313,7 @@ function generateAdminPage(fileCards, qrModal) {
     <!-- <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script> -->
     <script>
       // -------------------- 基本变量 --------------------
-      const itemsPerPage = 20; 
+      const itemsPerPage = 15; 
       let currentPage = 1;
     
       const fileGrid = document.getElementById('fileGrid');
@@ -1370,11 +1389,6 @@ function generateAdminPage(fileCards, qrModal) {
         nextBtn.disabled = currentPage === totalPages;
         nextBtn.onclick = () => { currentPage++; renderPage(currentPage); };
         paginationContainer.appendChild(nextBtn);
-    
-        const pageInfo = document.createElement('span');
-        pageInfo.className = 'page-info';
-        pageInfo.textContent = \`第 \${currentPage} 页 / 共 \${totalPages} 页\`;
-        paginationContainer.appendChild(pageInfo);
       }
     
       searchInput.addEventListener('input', () => {
