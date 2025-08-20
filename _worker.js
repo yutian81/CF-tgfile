@@ -263,7 +263,7 @@ async function handleAdminRequest(request, config) {
         </div>
         <div class="file-actions">
           <button class="btn btn-copy" onclick="showQRCode('${file.url}')">分享</button>
-          <a class="btn btn-down" href="${file.url}" download="${fileName}">下载</a>
+          <a class="btn btn-down" href="${file.url}" download="${fileName}" target="_blank">下载</a>
           <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
         </div>
       </div>
@@ -1156,14 +1156,8 @@ function generateAdminPage(fileCards, qrModal) {
         font-size: 12px;
       }
       .file-actions .btn {
-        font-size: inherit;  /* 让所有按钮继承父容器的字体大小 */
+        font-size: inherit;
       }
-      /* .file-checkbox {
-        position: absolute;
-        left: 5px;
-        top: 5px;
-        z-index: 10;
-      } */
       .btn {
         padding: 5px 10px;
         border: none;
@@ -1219,6 +1213,65 @@ function generateAdminPage(fileCards, qrModal) {
         border-radius: 5px;
         cursor: pointer;
       }
+
+      /* 分页按钮样式 */
+      #pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 20px 0;
+      }
+    
+      #pagination .btn-page {
+        padding: 6px 14px;
+        border-radius: 8px;
+        border: none;
+        background-color: #fff;
+        color: #007bff;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 40px;
+        text-align: center;
+        font-size: 14px;
+        box-shadow: none;
+      }
+
+      #pagination .page-info {
+        border-radius: 8px;
+        border: none;
+        background-color: #FAE7D8;
+        color: #0A0A0A !important;
+        transition: all 0.2s;
+        text-align: center;
+        font-size: 14px;
+        box-shadow: none;
+      }      
+    
+      #pagination .btn-page:hover {
+        background-color: #007bff;
+        color: #fff;
+      }
+    
+      #pagination .btn-page.active {
+        background-color: #007bff;
+        color: #fff;
+        cursor: default;
+      }
+    
+      #pagination .btn-page:disabled {
+        background-color: #f0f0f0;
+        color: #aaa;
+        cursor: not-allowed;
+        border-color: #ccc;
+      }
+    
+      #pagination span.page-info {
+        padding: 6px 10px;
+        font-size: 14px;
+        color: #333;
+      }
     </style>
   </head>
   <body>
@@ -1240,10 +1293,23 @@ function generateAdminPage(fileCards, qrModal) {
     <!-- 引入 JSZip 库 -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script> -->
     <script>
-      // 添加背景图相关函数
+      // -------------------- 基本变量 --------------------
+      const itemsPerPage = 20; 
+      let currentPage = 1;
+    
+      const fileGrid = document.getElementById('fileGrid');
+      const searchInput = document.getElementById('searchInput');
+      let fileCards = Array.from(fileGrid.children);
+    
+      // 创建分页容器
+      const paginationContainer = document.createElement('div');
+      paginationContainer.id = 'pagination';
+      fileGrid.parentNode.insertBefore(paginationContainer, fileGrid.nextSibling);
+    
+      // -------------------- 背景图 --------------------
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing', { cache: 'no-store' });  // 禁用缓存
+          const response = await fetch('/bing', { cache: 'no-store' });
           const data = await response.json();
           if (data.status && data.data && data.data.length > 0) {
             const randomIndex = Math.floor(Math.random() * data.data.length);
@@ -1253,93 +1319,122 @@ function generateAdminPage(fileCards, qrModal) {
           console.error('获取背景图失败:', error);
         }
       }
-      // 页面加载时设置背景图
-      setBingBackground(); 
-      // 每小时更新一次背景图
+      setBingBackground();
       setInterval(setBingBackground, 3600000);
-
-      const searchInput = document.getElementById('searchInput');
-      const fileGrid = document.getElementById('fileGrid');
-      const fileCards = Array.from(fileGrid.children);
-
-      searchInput.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        fileCards.forEach(card => {
-          const fileName = card.querySelector('.file-info div:first-child').textContent.toLowerCase();
-          card.style.display = fileName.includes(searchTerm) ? '' : 'none';
+    
+      // -------------------- 分页逻辑 --------------------
+      function getFilteredCards() {
+        const term = searchInput.value.toLowerCase();
+        return fileCards.filter(card => {
+          const name = card.querySelector('.file-info div:first-child').textContent.toLowerCase();
+          return name.includes(term);
         });
+      }
+    
+      function renderPage(page) {
+        const filteredCards = getFilteredCards();
+        const totalPages = Math.ceil(filteredCards.length / itemsPerPage) || 1;
+        if (page > totalPages) currentPage = totalPages;
+        if (page < 1) currentPage = 1;
+    
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+    
+        fileCards.forEach(c => c.style.display = 'none');
+        filteredCards.slice(start, end).forEach(c => c.style.display = '');
+    
+        renderPagination(totalPages);
+      }
+    
+      function renderPagination(totalPages) {
+        paginationContainer.innerHTML = '';
+    
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '上一页';
+        prevBtn.className = 'btn-page';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => { currentPage--; renderPage(currentPage); };
+        paginationContainer.appendChild(prevBtn);
+    
+        for (let i = 1; i <= totalPages; i++) {
+          const btn = document.createElement('button');
+          btn.textContent = i;
+          btn.className = 'btn-page' + (i === currentPage ? ' active' : '');
+          btn.onclick = () => { currentPage = i; renderPage(currentPage); };
+          paginationContainer.appendChild(btn);
+        }
+    
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = '下一页';
+        nextBtn.className = 'btn-page';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => { currentPage++; renderPage(currentPage); };
+        paginationContainer.appendChild(nextBtn);
+    
+        const pageInfo = document.createElement('span');
+        pageInfo.className = 'page-info';
+        pageInfo.textContent = \`第 \${currentPage} 页 / 共 \${totalPages} 页\`;
+        paginationContainer.appendChild(pageInfo);
+      }
+    
+      searchInput.addEventListener('input', () => {
+        currentPage = 1;
+        renderPage(currentPage);
       });
-
-      // 添加分享二维码功能
+    
+      // -------------------- 二维码功能 --------------------
       let currentShareUrl = '';
       function showQRCode(url) {
-        currentShareUrl = url; // 存储当前分享的URL
+        currentShareUrl = url;
         const modal = document.getElementById('qrModal');
         const qrcodeDiv = document.getElementById('qrcode');
         const copyBtn = document.querySelector('.qr-copy');
         copyBtn.textContent = '复制链接';
         copyBtn.disabled = false;
         qrcodeDiv.innerHTML = '';
-        new QRCode(qrcodeDiv, {
-          text: url,
-          width: 200,
-          height: 200,
-          colorDark: "#000000",
-          colorLight: "#ffffff",
-          correctLevel: QRCode.CorrectLevel.H
-        });
+        new QRCode(qrcodeDiv, { text: url, width: 200, height: 200, colorDark: "#000", colorLight: "#fff", correctLevel: QRCode.CorrectLevel.H });
         modal.style.display = 'flex';
-      }   
-
-      function handleCopyUrl() {
-        navigator.clipboard.writeText(currentShareUrl)
-          .then(() => {
-            const copyBtn = document.querySelector('.qr-copy');
-            copyBtn.textContent = '✔ 已复制';
-            copyBtn.disabled = true;
-            setTimeout(() => {
-              copyBtn.textContent = '复制链接';
-              copyBtn.disabled = false;
-            }, 5000);
-          })
-          .catch(err => {
-            console.error('复制失败:', err);
-            alert('复制失败，请手动复制');
-          });
       }
-
+    
+      function handleCopyUrl() {
+        navigator.clipboard.writeText(currentShareUrl).then(() => {
+          const copyBtn = document.querySelector('.qr-copy');
+          copyBtn.textContent = '✔ 已复制';
+          copyBtn.disabled = true;
+          setTimeout(() => { copyBtn.textContent = '复制链接'; copyBtn.disabled = false; }, 5000);
+        }).catch(() => alert('复制失败，请手动复制'));
+      }
+    
       function closeQRModal() {
         document.getElementById('qrModal').style.display = 'none';
-      }      
-      window.onclick = function(event) {
-        const modal = document.getElementById('qrModal');
-        if (event.target === modal) {
-          modal.style.display = 'none';
-        }
       }
-
+    
+      window.onclick = (event) => {
+        const modal = document.getElementById('qrModal');
+        if (event.target === modal) modal.style.display = 'none';
+      }
+    
+      // -------------------- 删除功能 --------------------
       async function deleteFile(url) {
         if (!confirm('确定要删除这个文件吗？')) return;
-        
         try {
-          const response = await fetch('/delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
-          });
-
+          const response = await fetch('/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || '删除失败');
           }
-          
           const card = document.querySelector(\`[data-url="\${url}"]\`);
           if (card) card.remove();
+          fileCards = Array.from(fileGrid.children); // 更新缓存
+          renderPage(currentPage);
           alert('文件删除成功');
-        } catch (error) {
-          alert('文件删除失败: ' + error.message); // 显示错误的详细信息
+        } catch (err) {
+          alert('文件删除失败: ' + err.message);
         }
       }
+    
+      // -------------------- 初始渲染 --------------------
+      renderPage(currentPage);
     </script>
   </body>
   </html>`;
