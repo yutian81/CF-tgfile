@@ -900,6 +900,7 @@ function generateUploadPage() {
         background: #dc3545;
       }
 
+      /* 版权页脚 */
       footer {
         font-size: 0.85rem;
         width: 100%;
@@ -1372,7 +1373,6 @@ function generateAdminPage(fileCards, qrModal) {
         font-size: 0.85rem;
         width: 100%;
         text-align: center;
-        margin: 0 20px 5px 20px;
       }
       footer p {
         color: #7F7F7E;
@@ -1389,7 +1389,7 @@ function generateAdminPage(fileCards, qrModal) {
       }
       footer a:hover {
         color: #007BFF !important;
-      }      
+      }   
     </style>
   </head>
   <body>
