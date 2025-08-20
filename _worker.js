@@ -563,14 +563,37 @@ async function handleBingImagesRequest() {
 
 // 文件大小计算函数
 function formatSize(bytes) {
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let size = bytes;
-    let unitIndex = 0;
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
-    }
-    return `${size.toFixed(2)} ${units[unitIndex]}`;
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  return `${size.toFixed(2)} ${units[unitIndex]}`;
+}
+
+function headLinks() {
+  return `
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Telegram文件存储与分享平台">
+    <link rel="shortcut icon" href="https://pan.811520.xyz/2025-02/1739241502-tgfile-favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  `;
+}
+
+// HTML版权页
+function copyright() {
+  return `
+    <p>
+      <span><i class="fas fa-copyright"></i> 2025 Copyright by Yutian81</span><span style="margin: 0 6px;">|</span>
+      <a href="https://github.com/yutian81/CF-tgfile" style="text-decoration: none;" target="_blank">
+      <i class="fab fa-github"></i> GitHub Repo</a><span style="margin: 0 6px;">|</span>
+      <a href="https://blog.811520.xyz/" style="text-decoration: none;" target="_blank">
+      <i class="fas fa-blog"></i> 青云志博客</a>
+    </p>
+  `;
 }
 
 // 登录页面生成函数 /login
@@ -578,27 +601,31 @@ function generateLoginPage() {
   return `<!DOCTYPE html>
   <html lang="zh-CN">
   <head>
-  <link rel="shortcut icon" href="https://pan.811520.xyz/2025-02/1739241502-tgfile-favicon.ico" type="image/x-icon">
-  <meta name="description" content="Telegram文件存储与分享平台">
-  <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录</title>
+  ${headLinks()}
+  <title>登录</title>
     <style>
       body {
+        position: relative;
+        min-height: 100vh;
+        margin: 0;
+        background: #f5f5f5;
+        font-family: Arial, sans-serif;
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 100vh;
-        background: #f5f5f5;
-        font-family: Arial, sans-serif;
+        padding: 20px;
+        box-sizing: border-box;
       }
       .login-container {
-        background: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
         padding: 20px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         width: 100%;
         max-width: 400px;
+        z-index: 1;
       }
       .form-group {
         margin-bottom: 1rem;
@@ -632,6 +659,35 @@ function generateLoginPage() {
         margin-top: 1rem;
         display: none;
       }
+
+      /* 版权页脚 */
+      footer {
+        position: absolute;
+        margin-bottom: 10px;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 0.85rem;
+        padding: 10px 0;
+        background: transparent;
+      }
+      footer p {
+        color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin: 0;
+      }
+      footer a {
+        color: #fff;
+        transition: color 0.3s ease;
+      }
+      footer a:hover {
+        color: #007BFF !important;
+      }       
     </style>
   </head>
   <body>
@@ -648,6 +704,9 @@ function generateLoginPage() {
         <div id="error" class="error">用户名或密码错误</div>
       </form>
     </div>
+    <footer>
+      ${copyright()}
+    </footer>
     <script>
       // 添加背景图相关函数
       async function setBingBackground() {
@@ -669,24 +728,28 @@ function generateLoginPage() {
 
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const errorEl = document.getElementById('error');
+        errorEl.style.display = 'none'; // 隐藏旧错误
+    
         try {
-          const response = await fetch('/', {
+          const response = await fetch('/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
           });
-          
+    
           if (response.ok) {
             window.location.href = '/upload';
           } else {
-            document.getElementById('error').style.display = 'block';
+            errorEl.style.display = 'block';
+            errorEl.textContent = "用户名或密码错误";
           }
         } catch (err) {
-          console.error('登录失败:', err);
-          document.getElementById('error').style.display = 'block';
+          console.error('登录请求失败:', err);
+          errorEl.style.display = 'block';
+          errorEl.textContent = "登录失败，请稍后再试";
         }
       });
     </script>
@@ -699,11 +762,8 @@ function generateUploadPage() {
   return `<!DOCTYPE html>
   <html lang="zh-CN">
   <head>
-  <link rel="shortcut icon" href="https://pan.811520.xyz/2025-02/1739241502-tgfile-favicon.ico" type="image/x-icon">
-  <meta name="description" content="Telegram文件存储与分享平台">
-  <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文件上传</title>
+  ${headLinks()}
+  <title>文件上传</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -716,16 +776,14 @@ function generateUploadPage() {
         margin: 0;
       }
       .container {
-        max-width: 800px;
-        width: 100%;
+        width: 800px;
         background: rgba(255, 255, 255, 0.5);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         padding: 10px 40px 20px 40px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        overflow-y: auto;
-        max-height: 90vh;
+        margin: 20px;
       }
       .header {
         display: flex;
@@ -795,12 +853,11 @@ function generateUploadPage() {
       .admin-link:hover {
         text-decoration: underline;
       }
-      .button-group {
-        margin-top: 10px;
-        margin-bottom: 10px;
+      .button-container {
         display: flex;
-        justify-content: space-between;
         align-items: center;
+        margin: 15px 0;
+        width: 100%;
       }
       .button-container button {
         margin-right: 10px;
@@ -813,11 +870,6 @@ function generateUploadPage() {
       }
       .button-container button:hover {
         background: #0056b3;
-      }
-      .copyright {
-      margin-left: auto;
-      font-size: 12px;
-      color: #888;
       }
       .progress-bar {
         height: 20px;
@@ -847,6 +899,35 @@ function generateUploadPage() {
       .error .progress-track {
         background: #dc3545;
       }
+
+      footer {
+        font-size: 0.85rem;
+        width: 100%;
+        text-align: center;
+        margin: 0;
+      }
+      footer p {
+        color: #7F7F7E;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin: 0;
+      }
+      /* 手机屏幕下居中 */
+      @media (max-width: 768px) {
+        footer p {
+          justify-content: center;
+        }
+      }
+      footer a {
+        color: #7F7F7E;
+        transition: color 0.3s ease;
+      }
+      footer a:hover {
+        color: #007BFF !important;
+      }
     </style>
   </head>
   <body>
@@ -862,20 +943,15 @@ function generateUploadPage() {
       <div class="preview-area" id="previewArea"></div>
       <div class="url-area">
         <textarea id="urlArea" readonly placeholder="上传完成后的链接将显示在这里"></textarea>
-        <div class="button-group">
-          <div class="button-container">
-            <button onclick="copyUrls('url')">复制URL</button>
-            <button onclick="copyUrls('markdown')">复制Markdown</button>
-            <button onclick="copyUrls('html')">复制HTML</button>
-          </div>
-          <div class="copyright">
-            <span>© 2025 Copyright by
-            <a href="https://github.com/yutian81/CF-tgfile" target="_blank" style="text-decoration: none; color: inherit;">yutian81's GitHub</a> | 
-            <a href="https://blog.811520.xyz/" target="_blank" style="text-decoration: none; color: inherit;">青云志</a>
-            </span>
-          </div>
-        </div>
       </div>
+      <div class="button-container">
+        <button onclick="copyUrls('url')">复制URL</button>
+        <button onclick="copyUrls('markdown')">复制Markdown</button>
+        <button onclick="copyUrls('html')">复制HTML</button>
+      </div>
+      <footer>
+        ${copyright()}
+      </footer>
     </div>
 
     <script>
@@ -1074,11 +1150,8 @@ function generateAdminPage(fileCards, qrModal) {
   return `<!DOCTYPE html>
   <html lang="zh-CN">
   <head>
-  <link rel="shortcut icon" href="https://pan.811520.xyz/2025-02/1739241502-tgfile-favicon.ico" type="image/x-icon">
-  <meta name="description" content="Telegram文件存储与分享平台">
-  <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文件管理</title>
+  ${headLinks()}
+  <title>文件管理</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -1293,6 +1366,30 @@ function generateAdminPage(fileCards, qrModal) {
         font-size: 14px;
         color: #333;
       }
+
+      /* 版权页脚 */
+      footer {
+        font-size: 0.85rem;
+        width: 100%;
+        text-align: center;
+        margin: 0 20px 5px 20px;
+      }
+      footer p {
+        color: #7F7F7E;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin: 0;
+      }
+      footer a {
+        color: #7F7F7E;
+        transition: color 0.3s ease;
+      }
+      footer a:hover {
+        color: #007BFF !important;
+      }      
     </style>
   </head>
   <body>
@@ -1307,6 +1404,9 @@ function generateAdminPage(fileCards, qrModal) {
       </div>
       ${qrModal}
     </div>
+    <footer>
+      ${copyright()}
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
     <!-- 引入 JSZip 库 -->
