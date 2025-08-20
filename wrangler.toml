@@ -1,0 +1,21 @@
+name = "tg-file"
+main = "src/main.js"
+compatibility_date = "2025-08-20"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+keep_vars = true
+
+[env.development.vars]
+DOMAIN = "localhost"
+USERNAME = "admin"
+PASSWORD = "admin"
+ENABLE_AUTH = "true"
+TG_BOT_TOKEN = ""
+TG_CHAT_ID = ""
+COOKIE = "7"
+MAX_SIZE_MB = "20"
+
+[env.development]
+d1_databases = [
+  { binding = "DATABASE", database_id = "local" }
+]
