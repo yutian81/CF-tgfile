@@ -14,6 +14,7 @@ TG_BOT_TOKEN = ""
 TG_CHAT_ID = ""
 COOKIE = "7"
 MAX_SIZE_MB = "20"
+API_KEY = "test"
 
 [env.development]
 d1_databases = [
