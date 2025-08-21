@@ -1,19 +1,28 @@
 // 由于tg的限制，虽然可以上传超过20M的文件，但无法返回直链地址
 // 因此修改代码，当文件大于20MB时，直接阻止上传
 
-// 数据库初始化函数
+// 数据库初始化（首次）
+let isDatabaseInitialized = false;
+
 async function initDatabase(config) {
-  await config.database.prepare(`
-    CREATE TABLE IF NOT EXISTS files (
-      url TEXT PRIMARY KEY,
-      fileId TEXT NOT NULL,
-      message_id INTEGER NOT NULL,
-      created_at INTEGER NOT NULL,
-      file_name TEXT,
-      file_size INTEGER,
-      mime_type TEXT
-    )
-  `).run();
+  if (isDatabaseInitialized) return;
+  try {
+    await config.database.prepare(`
+      CREATE TABLE IF NOT EXISTS files (
+        url TEXT PRIMARY KEY,
+        fileId TEXT NOT NULL,
+        message_id INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        file_name TEXT,
+        file_size INTEGER,
+        mime_type TEXT
+      )
+    `).run();
+    isDatabaseInitialized = true;
+  } catch (error) {
+    console.error('Database initialization failed:', error);
+    throw new Response('Database error', { status: 500 });
+  }
 }
 
 // 导出函数
@@ -34,6 +43,7 @@ export default {
 
     // 初始化数据库
     await initDatabase(config);
+    
     // 路由处理
     const { pathname } = new URL(request.url);
 
@@ -587,10 +597,10 @@ function headLinks() {
 function copyright() {
   return `
     <p>
-      <span><i class="fas fa-copyright"></i> 2025 Copyright by Yutian81</span><span style="margin: 0 6px;">|</span>
-      <a href="https://github.com/yutian81/CF-tgfile" style="text-decoration: none;" target="_blank">
-      <i class="fab fa-github"></i> GitHub Repo</a><span style="margin: 0 6px;">|</span>
-      <a href="https://blog.811520.xyz/" style="text-decoration: none;" target="_blank">
+      <span><i class="fas fa-copyright"></i> 2025 Copyright by Yutian81</span><span>|</span>
+      <a href="https://github.com/yutian81/CF-tgfile" target="_blank">
+      <i class="fab fa-github"></i> GitHub Repo</a><span>|</span>
+      <a href="https://blog.811520.xyz/" target="_blank">
       <i class="fas fa-blog"></i> 青云志博客</a>
     </p>
   `;
@@ -678,16 +688,17 @@ function generateLoginPage() {
         justify-content: center;
         align-items: center;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 8px;
         margin: 0;
       }
       footer a {
         color: #fff;
+        text-decoration: none;
         transition: color 0.3s ease;
       }
       footer a:hover {
         color: #007BFF !important;
-      }       
+      }
     </style>
   </head>
   <body>
@@ -913,7 +924,7 @@ function generateUploadPage() {
         justify-content: flex-end;
         align-items: center;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 8px;
         margin: 0;
       }
       /* 手机屏幕下居中 */
@@ -924,6 +935,7 @@ function generateUploadPage() {
       }
       footer a {
         color: #7F7F7E;
+        text-decoration: none;
         transition: color 0.3s ease;
       }
       footer a:hover {
@@ -1380,11 +1392,12 @@ function generateAdminPage(fileCards, qrModal) {
         justify-content: center;
         align-items: center;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 8px;
         margin: 0;
       }
       footer a {
         color: #7F7F7E;
+        text-decoration: none;
         transition: color 0.3s ease;
       }
       footer a:hover {
