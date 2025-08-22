@@ -1,11 +1,11 @@
 name = "tg-file"
 main = "src/main.js"
-compatibility_date = "2025-08-20"
+compatibility_date = "2025-08-16"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 keep_vars = true
 
-[env.development.vars]
+[env.development]
 DOMAIN = "localhost"
 USERNAME = "admin"
 PASSWORD = "admin"
@@ -16,7 +16,10 @@ COOKIE = "7"
 MAX_SIZE_MB = "20"
 API_KEY = "test"
 
-[env.development]
-d1_databases = [
-  { binding = "DATABASE", database_id = "local" }
-]
+[env.development.site]
+bucket = "./public"
+
+[[env.development.d1_databases]]
+binding = "DATABASE"
+database_id = "local"
+database_name = "tgfile"

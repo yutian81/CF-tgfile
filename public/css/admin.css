@@ -1,0 +1,239 @@
+/* public/admin.css */
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: #f5f5f5;
+}
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap; /* 移动端支持换行 */
+  align-items: center;
+}
+
+.header h2 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.header .backup {
+  background: #007BFF;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  margin: 0 20px;
+  text-decoration: none;
+  color: #fff;
+  text-decoration: none;
+}
+
+.header .backup:hover {
+  text-decoration: underline;
+}
+
+.header .search {
+  flex: 1 1 100%;
+  max-width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.5);
+  box-sizing: border-box;
+}
+
+/* 桌面端：不换行，搜索框固定宽度 */
+@media (min-width: 768px) {
+  .header {
+    flex-wrap: nowrap;
+  }
+  .header .search {
+    flex: unset;
+    width: 300px;
+    margin-top: 0;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+.file-card {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  overflow: hidden;
+  position: relative;
+}
+.file-preview {
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-preview img, .file-preview video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.file-info {
+  padding: 10px;
+  font-size: 14px;
+}
+.file-actions {
+  padding: 10px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 12px;
+}
+.file-actions .btn {
+  font-size: inherit;
+}
+.btn {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-delete {
+  background: #dc3545;
+  color: white;
+}
+.btn-copy {
+  background: #007bff;
+  color: white;
+}
+.btn-down {
+  background: #007bff;
+  color: white;
+  text-decoration: none;
+}
+.qr-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.qr-content {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+#qrcode {
+  margin: 5px 0;
+}
+.qr-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 15px;
+}
+.qr-copy, .qr-close {
+  padding: 8px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* 分页按钮样式 */
+#pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#pagination .btn-page {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #0A0A0A;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 40px;
+  text-align: center;
+  font-size: 14px;
+  box-shadow: none;
+  margin: 20px 0;
+}
+
+#pagination .btn-page:hover {
+  background-color: #007bff;
+  color: #fff;
+}
+
+#pagination .btn-page.active {
+  background-color: #007bff;
+  color: #fff;
+  cursor: default;
+}
+
+#pagination .btn-page:disabled {
+  background-color: #f0f0f0;
+  color: #aaa;
+  cursor: not-allowed;
+  border-color: #ccc;
+}
+
+#pagination span.page-info {
+  padding: 6px 10px;
+  font-size: 14px;
+  color: #333;
+}
+
+/* 版权页脚 */
+footer {
+  font-size: 0.85rem;
+  width: 100%;
+  text-align: center;
+}
+footer p {
+  color: #7F7F7E;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+footer a {
+  color: #7F7F7E;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+footer a:hover {
+  color: #007BFF !important;
+}   

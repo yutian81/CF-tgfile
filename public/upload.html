@@ -1,0 +1,42 @@
+<!-- public/upload.html -->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件上传</title>
+  <script src="./js/head.js" defer></script>
+  <link rel="stylesheet" href="./css/upload.css">
+</head>
+
+<body>
+  <div class="up-container">
+    <div class="header">
+      <h1>文件上传</h1>
+      <a href="/admin" class="admin-link">文件管理</a>
+    </div>
+
+    <div class="upload-area" id="uploadArea">
+      <p>点击选择 或 拖拽文件到此处<br>支持 Ctrl+V 粘贴上传</p>
+      <input type="file" id="fileInput" name="file" multiple style="display: none">
+    </div>
+
+    <div class="preview-area" id="previewArea"></div>
+
+    <div class="url-area">
+      <textarea id="urlArea" readonly placeholder="上传完成后的链接将显示在这里"></textarea>
+    </div>
+
+    <div class="button-container">
+      <button type="button" onclick="copyUrls('url')">复制URL</button>
+      <button type="button" onclick="copyUrls('markdown')">复制Markdown</button>
+      <button type="button" onclick="copyUrls('html')">复制HTML</button>
+    </div>
+  </div>
+
+  <script src="./js/footer.js" defer></script>
+  <script src="./js/bingtu.js" defer></script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

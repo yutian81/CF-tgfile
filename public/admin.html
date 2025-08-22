@@ -1,0 +1,47 @@
+<!-- public/admin.html -->>
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件管理</title>
+  <script src="./js/head.js" defer></script>
+  <link rel="stylesheet" href="./css/admin.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>文件管理</h2>
+      <a href="/upload" class="backup">返回上传</a>
+      <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
+    </div>
+    <div class="grid" id="fileGrid"></div>
+  </div>
+
+  <script src="./js/footer.js" defer></script>
+  <script src="./js/bingtu.js" defer></script>
+
+  <script type="module">
+    import { renderAdminPage } from './js/admin/admin.js';
+    import { setupPagination } from './js/admin/pagination.js';
+    import { showQRCode, handleCopyUrl, closeQRModal, bindQRModalClose } from './js/admin/qr.js';
+    import { deleteFile } from './js/admin/delete.js';
+
+    await renderAdminPage('/api/files');
+
+    const fileGrid = document.getElementById('fileGrid');
+    const searchInput = document.getElementById('searchInput');
+    const pagination = setupPagination(fileGrid, searchInput, 15);
+    window.pagination = pagination;
+    pagination.render();
+
+    bindQRModalClose();
+
+    window.showQRCode = showQRCode;
+    window.handleCopyUrl = handleCopyUrl;
+    window.closeQRModal = closeQRModal;
+    window.deleteFile = (url) => deleteFile(url, pagination, '/api/files');
+  </script>
+</body>
+</html>
