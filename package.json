@@ -1,0 +1,14 @@
+{
+  "name": "tgfile",
+  "version": "1.0.0",
+  "description": "Telegram文件存储与分享平台",
+  "main": "worker/main.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --local",
+    "build": "wrangler build"
+  },
+  "devDependencies": {
+    "wrangler": "^3.114.14"
+  }
+}

@@ -1,0 +1,87 @@
+export const loginCSS = `
+body {
+  position: relative;
+  min-height: 100vh;
+  margin: 0;
+  background: #f5f5f5;
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+.login-container {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  width: 100%;
+  max-width: 400px;
+  z-index: 1;
+}
+.form-group {
+  margin-bottom: 1rem;
+}
+input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.7);
+  color: #333;
+}
+button {
+  width: 100%;
+  padding: 0.75rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+button:hover {
+  background: #0056b3;
+}
+.error {
+  color: #dc3545;
+  margin-top: 1rem;
+  display: none;
+}
+
+/* 版权页脚 */
+footer {
+  position: absolute;
+  margin-bottom: 10px;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.85rem;
+  padding: 10px 0;
+  background: transparent;
+}
+footer p {
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+footer a {
+  color: #fff;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+footer a:hover {
+  color: #007BFF !important;
+}
+`;
