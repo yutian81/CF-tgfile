@@ -1,4 +1,0 @@
-name = "tgfile"
-main = "worker/main.js"
-compatibility_date = "2024-11-08"
-keep_vars = true
