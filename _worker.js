@@ -601,7 +601,7 @@ function copyright() {
       <a href="https://github.com/yutian81/CF-tgfile" target="_blank">
       <i class="fab fa-github"></i> GitHub Repo</a><span>|</span>
       <a href="https://blog.811520.xyz/" target="_blank">
-      <i class="fas fa-blog"></i> 青云志博客</a>
+      <i class="fas fa-blog"></i> QingYun Blog</a>
     </p>
   `;
 }
