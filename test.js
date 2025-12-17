@@ -16,7 +16,6 @@ async function initDatabase(config) {
         file_name TEXT,
         webp_file_name TEXT,
         file_size INTEGER,
-        webp_file_size INTEGER,
         mime_type TEXT
       )
     `
@@ -50,13 +49,11 @@ export default {
     // 初始化数据库
     await initDatabase(config);
 
-    // 路由处理
     const { pathname } = new URL(request.url);
 
     // 统一认证检查
     const publicRoutes = ['/config', '/bing'];
     const authRoutes = ['/', '/login'];
-
     if (config.enableAuth) {
       if (!publicRoutes.includes(pathname) && !authRoutes.includes(pathname)) {
         if (!authenticate(request, config)) {
@@ -116,7 +113,7 @@ function authenticate(request, config) {
   return false; // 两种认证方式都失败
 }
 
-// 处理路由
+// 处理身份验证
 async function handleAuthRequest(request, config) {
   if (config.enableAuth) {
     const isAuthenticated = authenticate(request, config);
@@ -207,9 +204,9 @@ async function getTelegramFileUrl(fileId, config) {
 }
 
 // 构造 Cloudflare Image Resizing URL
-function buildImageResizingUrl(fileUrl, config, options) {
-  const resizingOptions = options || 'format=webp,quality=80,fit=contain';
-  return `https://${config.domain}/cdn-cgi/image/${resizingOptions}/${encodeURIComponent(fileUrl)}`;
+function buildImageResizingUrl(fileUrl, config) {
+  const webpParams = 'format=webp,quality=80';
+  return `https://${config.domain}/cdn-cgi/image/${webpParams}/${encodeURIComponent(fileUrl)}`;
 }
 
 // 处理文件上传
@@ -244,7 +241,10 @@ async function handleUploadRequest(request, config) {
     tgFormData.append('chat_id', config.tgChatId);
     tgFormData.append(field, file, file.name);
     const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/${method}`, { method: 'POST', body: tgFormData });
-    if (!tgResponse.ok) throw new Error('Telegram参数配置错误');
+    if (!tgResponse.ok) {
+      const errorText = await tgResponse.text();
+      throw new Error(`Telegram API调用失败 (状态码: ${tgResponse.status}): ${errorText}`);
+    }
 
     const tgData = await tgResponse.json();
     const result = tgData.result;
@@ -252,42 +252,30 @@ async function handleUploadRequest(request, config) {
     const fileId = result?.document?.file_id || result?.video?.file_id || result?.audio?.file_id || (result?.photo && result.photo[result.photo.length - 1]?.file_id);
     if (!fileId) throw new Error('未获取到文件ID');
     if (!messageId) throw new Error('未获取到tg消息ID');
-
     const time = Date.now();
     const timestamp = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-    const originalUrl = `https://${config.domain}/${time}.${ext}`;
-    const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
-    
-    let finalUrl = originalUrl;
-    let webpUrl = null;
-    let webpFileName = null;
-    let webpFileSize = 0;
 
-    // 仅在开启 WebP 且是可转换图片时，才生成 webp相关字段
-    if (config.webpEnabled && isConvertibleImage) {
-      webpUrl = `https://${config.domain}/${time}.webp`;
-      webpFileName = file.name.replace(/\.[^/.]+$/, '.webp');
-      finalUrl = webpUrl;
-      const fileUrl = await getTelegramFileUrl(fileId, config);
-      if (fileUrl) {
-        const imageResizingUrl = buildImageResizingUrl(fileUrl, config);
-        const headResponse = await fetch(imageResizingUrl, { method: 'HEAD' });
-        const contentLength = headResponse.headers.get('Content-Length');
-        if (contentLength) webpFileSize = parseInt(contentLength, 10);
-      }
-    }
+    const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
+    const useWebpMode = config.webpEnabled && isConvertibleImage;
+    const originalUrl = `https://${config.domain}/${time}.${ext}`;
+    const webpUrl = useWebpMode ? `https://${config.domain}/${time}.webp` : null;
+    const finalUrl = useWebpMode ? webpUrl : originalUrl;
+    const webpFileName = useWebpMode ? file.name.replace(/\.[^/.]+$/, '.webp') : null;
+    const finalFileName = useWebpMode ? webpFileName : file.name;
 
     await config.database
       .prepare(
         `
-      INSERT INTO files (url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, webp_file_size, mime_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO files (url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
       )
-      .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, webpFileName, file.size, webpFileSize, file.type)
+      .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, webpFileName, file.size, file.type)
       .run();
 
-    return new Response(JSON.stringify({ status: 1, msg: '✔ 上传成功', url: finalUrl }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({
+      status: 1, msg: '✔ 上传成功', url: finalUrl, file: finalFileName
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (error) {
     let statusCode = 500; // 默认500
     if (error.message.includes(`文件超过${config.maxSizeMB}MB限制`)) {
@@ -309,7 +297,7 @@ async function handleAdminRequest(request, config) {
   try {
     const files = await config.database
       .prepare(
-        `SELECT url, webp_url, fileId, message_id, created_at, file_name, file_size, webp_file_size, mime_type
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type
         FROM files
         ORDER BY created_at DESC`
       )
@@ -318,20 +306,17 @@ async function handleAdminRequest(request, config) {
     const fileList = files.results || [];
     const fileCards = fileList
       .map((file) => {
+        const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
+        const displayFileSize = formatSize(file.file_size);
         let displayUrl = file.url;
         let displayFileName = file.file_name;
-        let fileSizeBytes = file.file_size || 0;
         
-        const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
         const isWebpMode = config.webpEnabled && file.webp_url;
-        
         if (isWebpMode) {
           displayUrl = file.webp_url;
           displayFileName = file.webp_file_name;
-          fileSizeBytes = file.webp_file_size || 0;
         }
-        const displayFileSize = formatSize(fileSizeBytes);
-
+        
         return `
         <div class="file-card" data-url="${file.url}">
           <div class="file-preview">
@@ -382,7 +367,7 @@ async function handleSearchRequest(request, config) {
     const searchPattern = `%${query}%`;
     const files = await config.database
       .prepare(
-        `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, webp_file_size, mime_type
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type
         FROM files 
         WHERE file_name LIKE ? ESCAPE '!'
         OR webp_file_name LIKE ? ESCAPE '!'
@@ -401,13 +386,13 @@ async function handleSearchRequest(request, config) {
 
 // 获取文件并缓存
 async function handleFileRequest(request, config) {
-  const url = request.url;
   const cache = caches.default;
-  const cacheKey = new Request(url);
-  const urlObj = new URL(url);
-  const isWebpRequest = urlObj.pathname.toLowerCase().endsWith('.webp');
+  const cacheKey = request;
+  const { pathname } = new URL(request.url);
+  const isWebpRequest = pathname.toLowerCase().endsWith('.webp');
   const lookupColumn = config.webpEnabled && isWebpRequest ? 'webp_url' : 'url';
-
+  const lookupValue = request.url;
+  
   try {
     // 尝试从缓存中获取
     const cachedResponse = await cache.match(cacheKey);
@@ -416,10 +401,10 @@ async function handleFileRequest(request, config) {
     // 从数据库查询文件
     const file = await config.database
       .prepare(
-        `SELECT url, webp_url, fileId, message_id, file_name, webp_file_name, mime_type
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type
          FROM files WHERE ${lookupColumn} = ?`
       )
-      .bind(url)
+      .bind(lookupValue)
       .first();
 
     if (!file) {
@@ -431,7 +416,7 @@ async function handleFileRequest(request, config) {
 
     // 重定向条件：WebP 启用 AND 请求的是原始 URL, AND 数据库中有 webp_url 记录
     if (config.webpEnabled && !isWebpRequest && file.webp_url) {
-      return Response.redirect(file.webp_url, 302); // 302 临时重定向
+      return Response.redirect(file.webp_url, 302);
     }
 
     // 获取 Telegram 文件
@@ -462,7 +447,7 @@ async function handleFileRequest(request, config) {
     }
 
     // 创建响应并缓存 (使用新的 contentType)
-    let finalFileName = file.file_name || '';
+    let finalFileName = file.file_name;
     if (isWebpRequest) finalFileName = finalFileName.replace(/\.[^/.]+$/, '.webp');
     const response = new Response(fileResponse.body, {
       headers: {
@@ -504,18 +489,22 @@ async function handleDeleteRequest(request, config) {
       });
     }
 
-    let deleteError = null;
-
-    try {
-      const deleteResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`);
-      if (!deleteResponse.ok) {
-        const errorData = await deleteResponse.json();
-        console.error('[error] Telegram message delete failed:', errorData);
-        throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
+    const deleteError = await (async () => {
+      try {
+        const deleteResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`);
+        if (!deleteResponse.ok) {
+          const errorData = await deleteResponse.json();
+          console.error('[error] Telegram message delete failed:', errorData);
+          if (errorData.description && errorData.description.includes('message to delete not found')) {
+            return 'Telegram消息已不存在，但已从数据库移除';
+          }
+          throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
+        }
+        return null;
+      } catch (error) {
+        return error.message;
       }
-    } catch (error) {
-      deleteError = error.message;
-    }
+    })();
 
     // 删除数据库表数据，即使Telegram删除失败也会删除数据库记录
     await config.database.prepare('DELETE FROM files WHERE url = ?').bind(url).run();
@@ -524,13 +513,13 @@ async function handleDeleteRequest(request, config) {
         success: true,
         message: deleteError ? `文件已从数据库删除，但Telegram消息删除失败: ${deleteError}` : '文件删除成功',
       }),
-      { headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('[error] File delete request failed:', error);
     return new Response(
       JSON.stringify({
-        error: error.message.includes('message to delete not found') ? '文件已从频道移除' : error.message,
+        error: error.message,
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
