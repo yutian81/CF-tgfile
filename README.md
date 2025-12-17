@@ -33,7 +33,7 @@ CREATE UNIQUE INDEX idx_webp_url ON files (webp_url) WHERE webp_url IS NOT NULL;
 ## 2025-12-17 更新
 - 利用免费的 `CF Images` 实现将上传图片自动转换为 `webp` 格式 （免费额度：每月5000次唯一转换）
    - 开启方法：环境变量 `WEBP_ENABLED`
-- 固定API接口便于第三方集成，通过环境变量 `API_TOKEN` 设置固定密钥，默认为 `tgfile-admin`，详见 [API 文档](./api.md)
+- 固定API接口便于第三方集成，通过环境变量 `API_TOKEN` 设置固定密钥，默认为 `tgfile-admin`，详见 [API 文档](./API.md)
 - 大幅精简代码，优化性能
 
 ## 2025-02-11 更新
@@ -68,7 +68,9 @@ CREATE UNIQUE INDEX idx_webp_url ON files (webp_url) WHERE webp_url IS NOT NULL;
    | TG_CHAT_ID | TG频道ID | √ | 是频道ID，不是机器人ID，格式为`-10*****062333` |
 
 ## 访问应用
-   打开浏览器，访问 `http://你绑定的域名`，首次登录会要求输入用户名和密码，然后进行文件上传和管理。二次登录会跳过登录环节，直接进入上传页面，cookie 有效期为 7 天，超过 7 天会要求重新登录。你也可以在环境变量中设置 COOKIE 变量改变有效期
+   打开浏览器，访问 `http://你绑定的域名`，首次登录会要求输入用户名和密码，然后进行文件上传和管理  
+   二次登录会跳过登录环节，直接进入上传页面，cookie 有效期为 7 天，超过 7 天会要求重新登录  
+   你也可以在环境变量中设置 COOKIE 变量改变有效期
 
 ## Plan 计划
 - 增加更多文件格式的在线预览
