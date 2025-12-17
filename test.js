@@ -376,7 +376,7 @@ async function handleSearchRequest(request, config) {
         COLLATE NOCASE
         ORDER BY created_at DESC`
       )
-      .bind(searchPattern)
+      .bind(searchPattern, searchPattern)
       .all();
 
     return new Response(JSON.stringify({ files: files.results || [] }), { headers: { 'Content-Type': 'application/json' } });
