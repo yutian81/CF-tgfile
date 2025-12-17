@@ -1,6 +1,6 @@
 name = "cf-tgfile"
-main = "src/server/index.ts"
-compatibility_date = "2024-07-18"
+main = "_worker.js"
+compatibility_date = "2025-07-18"
 keep_vars = true
 
 # 绑定D1数据库
@@ -19,3 +19,4 @@ TG_BOT_TOKEN = "your_tg_bot_token" # 替换成你的 Telegram bot token
 
 # 注意: USERNAME, PASSWORD, 和 TG_BOT_TOKEN 等敏感信息
 # 应该通过 wrangler secret put <KEY> 命令设置，而不是写在配置文件里。
+
