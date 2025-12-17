@@ -159,6 +159,46 @@ async function handleLoginRequest(request, config) {
   });
 }
 
+// 支持预览的文件类型
+function getPreviewHtml(url) {
+  const ext = (url.split('.').pop() || '').toLowerCase();
+  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'icon'].includes(ext);
+  const isVideo = ['mp4', 'webm'].includes(ext);
+  const isAudio = ['mp3', 'wav', 'ogg'].includes(ext);
+
+  if (isImage) {
+    return `<img src="${url}" alt="预览">`;
+  } else if (isVideo) {
+    return `<video src="${url}" controls></video>`;
+  } else if (isAudio) {
+    return `<audio src="${url}" controls></audio>`;
+  } else {
+    return `<div style="font-size: 48px">📄</div>`;
+  }
+}
+
+// 调用 TG getFile API 获取文件路径，并构造完整的下载 URL
+async function getTelegramFileUrl(fileId, config) {
+  try {
+    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/getFile?file_id=${fileId}`);
+    if (!tgResponse.ok) return null;
+    const tgData = await tgResponse.json();
+    const filePath = tgData.result?.file_path;
+    if (!filePath) return null;
+    // 构造完整的 Telegram 下载 URL
+    return `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
+  } catch (error) {
+    console.error('[error] Fetching Telegram file URL failed:', error);
+    return null;
+  }
+}
+
+// 构造 Cloudflare Image Resizing URL
+function buildImageResizingUrl(fileUrl, config, options) {
+  const resizingOptions = options || 'format=webp,quality=80,fit=contain';
+  return `https://${config.domain}/cdn-cgi/image/${resizingOptions}/${encodeURIComponent(fileUrl)}`;
+}
+
 // 处理文件上传
 async function handleUploadRequest(request, config) {
   if (request.method === 'GET') {
@@ -212,17 +252,12 @@ async function handleUploadRequest(request, config) {
 
     // 仅在开启 WebP 且是可转换图片时，才生成 webp相关字段
     if (config.webpEnabled && isConvertibleImage) {
-      finalUrl = webpUrl;
       webpUrl = `https://${config.domain}/${time}.webp`;
       webpFileName = file.name.replace(/\.[^/.]+$/, '.webp');
-      
-      const tgFileResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/getFile?file_id=${fileId}`);
-      const tgFileData = await tgFileResponse.json();
-      const filePath = tgFileData.result?.file_path;
-      if (filePath) {
-        const fileUrl = `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
-        const resizingOptions = `format=webp,quality=80,fit=contain`;
-        const imageResizingUrl = `https://${config.domain}/cdn-cgi/image/${resizingOptions}/${encodeURIComponent(fileUrl)}`;
+      finalUrl = webpUrl;
+      const fileUrl = await getTelegramFileUrl(fileId, config);
+      if (fileUrl) {
+        const imageResizingUrl = buildImageResizingUrl(fileUrl, config);
         const headResponse = await fetch(imageResizingUrl, { method: 'HEAD' });
         const contentLength = headResponse.headers.get('Content-Length');
         if (contentLength) webpFileSize = parseInt(contentLength, 10);
@@ -350,31 +385,13 @@ async function handleSearchRequest(request, config) {
   }
 }
 
-// 支持预览的文件类型
-function getPreviewHtml(url) {
-  const ext = (url.split('.').pop() || '').toLowerCase();
-  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'icon'].includes(ext);
-  const isVideo = ['mp4', 'webm'].includes(ext);
-  const isAudio = ['mp3', 'wav', 'ogg'].includes(ext);
-
-  if (isImage) {
-    return `<img src="${url}" alt="预览">`;
-  } else if (isVideo) {
-    return `<video src="${url}" controls></video>`;
-  } else if (isAudio) {
-    return `<audio src="${url}" controls></audio>`;
-  } else {
-    return `<div style="font-size: 48px">📄</div>`;
-  }
-}
-
 // 获取文件并缓存
 async function handleFileRequest(request, config) {
   const url = request.url;
   const cache = caches.default;
   const cacheKey = new Request(url);
   const urlObj = new URL(url);
-  const isWebpRequest = urlObj.pathname.toLowerCase().endsWith('.webp'); // 确定D1查询字段
+  const isWebpRequest = urlObj.pathname.toLowerCase().endsWith('.webp');
   const lookupColumn = config.webpEnabled && isWebpRequest ? 'webp_url' : 'url';
 
   try {
@@ -404,42 +421,25 @@ async function handleFileRequest(request, config) {
     }
 
     // 获取 Telegram 文件
-    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/getFile?file_id=${file.fileId}`);
-    if (!tgResponse.ok) {
-      return new Response('获取文件失败', {
-        status: 500,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      });
-    }
-
-    const tgData = await tgResponse.json();
-    const filePath = tgData.result?.file_path;
-    if (!filePath) {
-      return new Response('文件路径无效', {
+    const fileUrl = await getTelegramFileUrl(file.fileId, config);
+    if (!fileUrl) {
+      return new Response('文件路径无效或获取失败', {
         status: 404,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
       });
     }
-
-    const fileUrl = `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
+    
     let fileResponse;
     let contentType = file.mime_type;
-
-    // 确定是否执行 Image Resizing 转换
     const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.mime_type);
     const shouldConvert = config.webpEnabled && isWebpRequest && isConvertibleImage;
 
     if (shouldConvert) {
-      const resizingOptions = `format=webp,quality=80,fit=contain`;
-      const imageResizingUrl = `https://${config.domain}/cdn-cgi/image/${resizingOptions}/${encodeURIComponent(fileUrl)}`;
+      const imageResizingUrl = buildImageResizingUrl(fileUrl, config);
       fileResponse = await fetch(imageResizingUrl);
-
-      if (fileResponse.ok) {
-        contentType = fileResponse.headers.get('Content-Type') || 'image/webp';
-      }
+      if (fileResponse.ok) contentType = fileResponse.headers.get('Content-Type') || 'image/webp';
     }
     if (!fileResponse || !fileResponse.ok) fileResponse = await fetch(fileUrl);
-
     if (!fileResponse.ok) {
       return new Response('下载文件失败', {
         status: 500,
