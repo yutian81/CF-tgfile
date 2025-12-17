@@ -2,7 +2,7 @@
 
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/cloudflare-workers';
-import { api } from './api';
+import { api, getContentType } from './api';
 import type { Bindings } from './types';
 
 // --- 类型定义 ---
@@ -14,18 +14,6 @@ interface TelegramGetFileResponse {
         file_size?: number;
         file_path?: string;
     };
-}
-
-// --- 工具函数 ---
-function getContentType(ext: string): string {
-    const types: Record<string, string> = {
-        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
-        webp: 'image/webp', svg: 'image/svg+xml', icon: 'image/x-icon', mp4: 'video/mp4',
-        webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
-        pdf: 'application/pdf', txt: 'text/plain', md: 'text/markdown', zip: 'application/zip',
-        json: 'application/json', xml: 'application/xml'
-    };
-    return types[ext] || 'application/octet-stream';
 }
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -51,11 +39,7 @@ app.get('/:filename', async (c) => {
             `SELECT fileId, file_name, mime_type FROM files WHERE url = ?`
         ).bind(url).first<{ fileId: string; file_name: string; mime_type: string }>();
 
-        if (!file) {
-            // 如果文件在数据库中找不到，就交给后续的静态资源处理器
-            // 这很重要，否则像 /favicon.ico 这样的请求也会被拦截并返回404
-            return await c.notFound();
-        }
+        if (!file) return await c.notFound();
 
         const tgResponse = await fetch(`https://api.telegram.org/bot${c.env.TG_BOT_TOKEN}/getFile?file_id=${file.fileId}`);
         if (!tgResponse.ok) throw new Error('获取 Telegram 文件信息失败');
