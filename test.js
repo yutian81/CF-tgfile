@@ -182,7 +182,6 @@ async function handleUploadRequest(request, config) {
       audio: { method: 'sendAudio', field: 'audio' },
     }; // 定义类型映射
     let { method = 'sendDocument', field = 'document' } = typeMap[mainType] || {};
-
     if (['application', 'text'].includes(mainType)) {
       method = 'sendDocument';
       field = 'document';
@@ -196,7 +195,7 @@ async function handleUploadRequest(request, config) {
 
     const tgData = await tgResponse.json();
     const result = tgData.result;
-    const messageId = tgData.result?.message_id;
+    const messageId = result?.message_id;
     const fileId = result?.document?.file_id || result?.video?.file_id || result?.audio?.file_id || (result?.photo && result.photo[result.photo.length - 1]?.file_id);
     if (!fileId) throw new Error('未获取到文件ID');
     if (!messageId) throw new Error('未获取到tg消息ID');
@@ -208,8 +207,8 @@ async function handleUploadRequest(request, config) {
     
     let finalUrl = originalUrl;
     let webpUrl = null;
-    let webpFileSize = 0;
     let webpFileName = null;
+    let webpFileSize = 0;
 
     // 仅在开启 WebP 且是可转换图片时，才生成 webp相关字段
     if (config.webpEnabled && isConvertibleImage) {
@@ -271,28 +270,28 @@ async function handleAdminRequest(request, config) {
     const fileList = files.results || [];
     const fileCards = fileList
       .map((file) => {
-        const fileName = file.file_name;
-        const fileSize = formatSize(file.file_size || 0);
+        let displayUrl = file.url;
+        let displayFileName = file.file_name;
+        let fileSizeBytes = file.file_size || 0;
+        
         const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
-        let displayFileName = fileName; // 默认为原始文件名
-        let finalUrl = file.url; // 默认为原始URL
-
         const isWebpMode = config.webpEnabled && file.webp_url;
+        
         if (isWebpMode) {
-          finalUrl = file.webp_url;
+          displayUrl = file.webp_url;
           displayFileName = file.webp_file_name;
-          displayFileSize = file.webp_file_size;
+          fileSizeBytes = file.webp_file_size;
         }
-        const fileSize = formatSize(displayFileSize);
+        const  = formatSize(fileSizeBytes);
 
         return `
         <div class="file-card" data-url="${file.url}">
           <div class="file-preview">
-            ${getPreviewHtml(finalUrl)}
+            ${getPreviewHtml(displayUrl)}
           </div>
           <div class="file-info">
             <div>${displayFileName}</div>
-            <div>${fileSize}</div>
+            <div>${displayFileSize}</div>
             <div>${createdAt}</div>
           </div>
           <div class="file-actions">
@@ -335,7 +334,7 @@ async function handleSearchRequest(request, config) {
     const searchPattern = `%${query}%`;
     const files = await config.database
       .prepare(
-        `SELECT url, webp_url, fileId, message_id, created_at, file_name, file_size, mime_type
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, webp_file_size, mime_type
         FROM files 
         WHERE file_name LIKE ? ESCAPE '!'
         COLLATE NOCASE
@@ -386,7 +385,7 @@ async function handleFileRequest(request, config) {
     // 从数据库查询文件
     const file = await config.database
       .prepare(
-        `SELECT url, webp_url, fileId, message_id, file_name, mime_type
+        `SELECT url, webp_url, fileId, message_id, file_name, webp_file_name, mime_type
          FROM files WHERE ${lookupColumn} = ?`
       )
       .bind(url)
@@ -399,7 +398,7 @@ async function handleFileRequest(request, config) {
       });
     }
 
-    // 重定向条件：WebP 启用 AND 请求的是原始 URL (.jpg/png) AND 数据库中有 webp_url 记录
+    // 重定向条件：WebP 启用 AND 请求的是原始 URL, AND 数据库中有 webp_url 记录
     if (config.webpEnabled && !isWebpRequest && file.webp_url) {
       return Response.redirect(file.webp_url, 302); // 302 临时重定向
     }
@@ -422,9 +421,7 @@ async function handleFileRequest(request, config) {
       });
     }
 
-    // TG原始文件URL
     const fileUrl = `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
-
     let fileResponse;
     let contentType = file.mime_type;
 
