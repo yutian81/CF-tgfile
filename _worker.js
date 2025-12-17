@@ -1,15 +1,15 @@
-// 由于tg的限制，虽然可以上传超过20M的文件，但无法返回直链地址
-// 因此修改代码，当文件大于20MB时，直接阻止上传
-
 // 数据库初始化（首次）
 let isDatabaseInitialized = false;
 
 async function initDatabase(config) {
   if (isDatabaseInitialized) return;
   try {
-    await config.database.prepare(`
+    await config.database
+      .prepare(
+        `
       CREATE TABLE IF NOT EXISTS files (
         url TEXT PRIMARY KEY,
+        webp_url TEXT UNIQUE,
         fileId TEXT NOT NULL,
         message_id INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
@@ -17,11 +17,13 @@ async function initDatabase(config) {
         file_size INTEGER,
         mime_type TEXT
       )
-    `).run();
+    `
+      )
+      .run();
     isDatabaseInitialized = true;
   } catch (error) {
-    console.error('Database initialization failed:', error);
-    throw new Response('Database error', { status: 500 });
+    console.error('[error] Database initialization failed:', error);
+    throw new Response('数据库初始化失败', { status: 500 });
   }
 }
 
@@ -32,28 +34,42 @@ export default {
     const config = {
       domain: env.DOMAIN,
       database: env.DATABASE,
-      username: env.USERNAME,
-      password: env.PASSWORD,
-      enableAuth: env.ENABLE_AUTH === 'true',
+      username: env.USERNAME || 'admin',
+      password: env.PASSWORD || 'admin',
+      apiToken: env.API_TOKEN || 'tgfile-admin',
+      enableAuth: env.ENABLE_AUTH === 'false', // 是否开启身份认证，默认不开启
+      webpEnabled: env.WEBP_ENABLED === 'true', // 是否开启 WebP 转换，默认不开启
       tgBotToken: env.TG_BOT_TOKEN,
       tgChatId: env.TG_CHAT_ID,
       cookie: Number(env.COOKIE) || 7, // cookie有效期默认为 7
-      maxSizeMB: Number(env.MAX_SIZE_MB) || 20 // 上传单文件大小默认为20M
+      maxSizeMB: Number(env.MAX_SIZE_MB) || 20, // 上传单文件大小默认为20M
     };
 
     // 初始化数据库
     await initDatabase(config);
-    
+
     // 路由处理
     const { pathname } = new URL(request.url);
+
+    // 统一认证检查
+    const publicRoutes = ['/config', '/bing'];
+    const authRoutes = ['/', '/login'];
+
+    if (config.enableAuth) {
+      if (!publicRoutes.includes(pathname) && !authRoutes.includes(pathname)) {
+        if (!authenticate(request, config)) {
+          return Response.redirect(`${new URL(request.url).origin}/`, 302);
+        }
+      }
+    }
 
     if (pathname === '/config') {
       const safeConfig = { maxSizeMB: config.maxSizeMB };
       return new Response(JSON.stringify(safeConfig), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       });
     }
-    
+
     const routes = {
       '/': () => handleAuthRequest(request, config),
       '/login': () => handleLoginRequest(request, config),
@@ -61,46 +77,49 @@ export default {
       '/admin': () => handleAdminRequest(request, config),
       '/delete': () => handleDeleteRequest(request, config),
       '/search': () => handleSearchRequest(request, config),
-      '/bing': handleBingImagesRequest
+      '/bing': handleBingImagesRequest,
     };
     const handler = routes[pathname];
     if (handler) return await handler();
-    
+
     // 处理文件访问请求
     return await handleFileRequest(request, config);
-  }
+  },
 };
 
 // 处理身份认证
 function authenticate(request, config) {
-  const cookies = request.headers.get("Cookie") || "";
+  // 检查 API Token (固定密钥认证)
+  const authHeader = request.headers.get('Authorization');
+  if (config.apiToken && authHeader) {
+    // 提取 Token 值，支持 Bearer 格式或直接 Token
+    const tokenValue = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : authHeader.trim();
+    if (tokenValue === config.apiToken) return true;
+  }
+
+  // 检查 Cookie (会话认证，仅在 API Token 认证失败时检查)
+  const cookies = request.headers.get('Cookie') || '';
   const authToken = cookies.match(/auth_token=([^;]+)/); // 获取cookie中的auth_token
   if (authToken) {
     try {
-      // 解码token，验证是否过期
       const tokenData = JSON.parse(atob(authToken[1]));
-      const now = Date.now();           
-      // 检查token是否过期
-      if (now > tokenData.expiration) {
-        console.log("Token已过期");
-        return false;
-      }          
-      // 如果token有效，返回用户名是否匹配
-      return tokenData.username === config.username;
+      const now = Date.now();
+      if (now > tokenData.expiration) return false; // 检查token是否过期
+      return tokenData.username === config.username; // 如果token有效，返回用户名是否匹配
     } catch (error) {
-      console.error("Token的用户名不匹配", error);
+      console.error('[error] Authentication token parsing failed:', error);
       return false;
     }
   }
-  return false;
+  return false; // 两种认证方式都失败
 }
 
 // 处理路由
 async function handleAuthRequest(request, config) {
   if (config.enableAuth) {
     const isAuthenticated = authenticate(request, config);
-    if (!isAuthenticated) return handleLoginRequest(request, config);  // 认证失败，跳转到登录页面
-    return handleUploadRequest(request, config);  // 认证通过，跳转到上传页面
+    if (!isAuthenticated) return handleLoginRequest(request, config); // 认证失败，跳转到登录页面
+    return handleUploadRequest(request, config); // 认证通过，跳转到上传页面
   }
   return handleUploadRequest(request, config); // 如果没有启用认证，直接跳转到上传页面
 }
@@ -109,45 +128,41 @@ async function handleAuthRequest(request, config) {
 async function handleLoginRequest(request, config) {
   if (request.method === 'POST') {
     const { username, password } = await request.json();
-    
+
     if (username === config.username && password === config.password) {
-      // 登录成功，设置一个有效期7天的cookie
+      // 登录成功，设置 cookie 有效期为 config.cookie 天
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + config.cookie);
       const expirationTimestamp = expirationDate.getTime();
-      // 创建token数据，包含用户名和过期时间
       const tokenData = JSON.stringify({
         username: config.username,
-        expiration: expirationTimestamp
-      });
+        expiration: expirationTimestamp,
+      }); // 创建token数据，包含用户名和过期时间
 
-      const token = btoa(tokenData);  // Base64编码
+      const token = btoa(tokenData);
       const cookie = `auth_token=${token}; Path=/; HttpOnly; Secure; Expires=${expirationDate.toUTCString()}`;
-      return new Response("登录成功", {
+      return new Response('登录成功', {
         status: 200,
         headers: {
-          "Set-Cookie": cookie,
-          "Content-Type": "text/plain"
-        }
+          'Set-Cookie': cookie,
+          'Content-Type': 'text/plain',
+        },
       });
     }
-    return new Response("认证失败", { status: 401 });
+    return new Response('身份认证失败', { status: 401 });
   }
-  const html = generateLoginPage();  // 如果是GET请求，返回登录页面
+  const html = generateLoginPage();
   return new Response(html, {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+    headers: { 'Content-Type': 'text/html;charset=UTF-8' },
   });
 }
 
 // 处理文件上传
 async function handleUploadRequest(request, config) {
-  if (config.enableAuth && !authenticate(request, config)) {
-    return Response.redirect(`${new URL(request.url).origin}/`, 302);
-  }
   if (request.method === 'GET') {
     const html = generateUploadPage();
     return new Response(html, {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+      headers: { 'Content-Type': 'text/html;charset=UTF-8' },
     });
   }
 
@@ -156,14 +171,13 @@ async function handleUploadRequest(request, config) {
     const file = formData.get('file');
     if (!file) throw new Error('未找到文件');
     if (file.size > config.maxSizeMB * 1024 * 1024) throw new Error(`文件超过${config.maxSizeMB}MB限制`);
-    
-    const ext = (file.name.split('.').pop() || '').toLowerCase();  //获取文件扩展名
-    const mimeType = getContentType(ext);  // 获取文件类型
-    const [mainType] = mimeType.split('/'); // 获取主类型
+
+    const ext = (file.name.split('.').pop() || '').toLowerCase(); //获取文件扩展名
+    const [mainType] = file.type.split('/'); // 获取文件主类型
     const typeMap = {
       image: { method: 'sendPhoto', field: 'photo' },
       video: { method: 'sendVideo', field: 'video' },
-      audio: { method: 'sendAudio', field: 'audio' }
+      audio: { method: 'sendAudio', field: 'audio' },
     }; // 定义类型映射
     let { method = 'sendDocument', field = 'document' } = typeMap[mainType] || {};
 
@@ -173,49 +187,43 @@ async function handleUploadRequest(request, config) {
     }
 
     const tgFormData = new FormData();
-      tgFormData.append('chat_id', config.tgChatId);
-      tgFormData.append(field, file, file.name);      
-    const tgResponse = await fetch(
-      `https://api.telegram.org/bot${config.tgBotToken}/${method}`,
-      { method: 'POST', body: tgFormData }
-    ); 
-    if (!tgResponse.ok) throw new Error('Telegram参数配置错误');  
+    tgFormData.append('chat_id', config.tgChatId);
+    tgFormData.append(field, file, file.name);
+    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/${method}`, { method: 'POST', body: tgFormData });
+    if (!tgResponse.ok) throw new Error('Telegram参数配置错误');
 
     const tgData = await tgResponse.json();
     const result = tgData.result;
     const messageId = tgData.result?.message_id;
-    const fileId = result?.document?.file_id ||
-                   result?.video?.file_id ||
-                   result?.audio?.file_id ||
-                  (result?.photo && result.photo[result.photo.length-1]?.file_id);
+    const fileId = result?.document?.file_id || result?.video?.file_id || result?.audio?.file_id || (result?.photo && result.photo[result.photo.length - 1]?.file_id);
     if (!fileId) throw new Error('未获取到文件ID');
     if (!messageId) throw new Error('未获取到tg消息ID');
 
     const time = Date.now();
     const timestamp = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-    const url = `https://${config.domain}/${time}.${ext}`;
-    
-    await config.database.prepare(`
-      INSERT INTO files (url, fileId, message_id, created_at, file_name, file_size, mime_type) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      url,
-      fileId,
-      messageId,
-      timestamp,
-      file.name,
-      file.size,
-      file.type || getContentType(ext)
-    ).run();
+    const originalUrl = `https://${config.domain}/${time}.${ext}`;
+    const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
+    let webpUrl = null;
+    let finalUrl = originalUrl;
 
-    return new Response(
-      JSON.stringify({ status: 1, msg: "✔ 上传成功", url }),
-      { headers: { 'Content-Type': 'application/json' }}
-    );
+    // 仅在开启 WebP 且是可转换图片时，才生成 webpUrl
+    if (config.webpEnabled && isConvertibleImage) {
+      webpUrl = `https://${config.domain}/${time}.webp`;
+      finalUrl = webpUrl;
+    }
 
+    await config.database
+      .prepare(
+        `
+      INSERT INTO files (url, webp_url, fileId, message_id, created_at, file_name, file_size, mime_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `
+      )
+      .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, file.size, file.type)
+      .run();
+
+    return new Response(JSON.stringify({ status: 1, msg: '✔ 上传成功', url: finalUrl }), { headers: { 'Content-Type': 'application/json' } });
   } catch (error) {
-    console.error(`[Upload Error] ${error.message}`);
-    // 根据错误信息设定不同的状态码
     let statusCode = 500; // 默认500
     if (error.message.includes(`文件超过${config.maxSizeMB}MB限制`)) {
       statusCode = 400; // 客户端错误：文件大小超限
@@ -226,54 +234,59 @@ async function handleUploadRequest(request, config) {
     } else if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
       statusCode = 504; // 网络超时或断网
     }
-    return new Response(
-      JSON.stringify({ status: 0, msg: "✘ 上传失败", error: error.message }),
-      { status: statusCode, headers: { 'Content-Type': 'application/json' }}
-    );
+    console.error(`[Error] ${error.message}`, error);
+    return new Response(JSON.stringify({ status: 0, msg: '✘ 上传失败', error: error.message }), { status: statusCode, headers: { 'Content-Type': 'application/json' } });
   }
 }
 
 // 处理文件管理和预览
 async function handleAdminRequest(request, config) {
-  if (config.enableAuth && !authenticate(request, config)) {
-    return Response.redirect(`${new URL(request.url).origin}/`, 302);
-  }
+  try {
+    const files = await config.database
+      .prepare(
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, file_size, mime_type
+        FROM files
+        ORDER BY created_at DESC`
+      )
+      .all();
 
-  const files = await config.database.prepare(
-    `SELECT url, fileId, message_id, created_at, file_name, file_size, mime_type
-    FROM files
-    ORDER BY created_at DESC`
-  ).all();
+    const fileList = files.results || [];
+    const fileCards = fileList
+      .map((file) => {
+        const fileName = file.file_name;
+        const fileSize = formatSize(file.file_size || 0);
+        const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
+        let displayFileName = fileName; // 默认为原始文件名
+        let finalUrl = file.url; // 默认为原始URL
 
-  const fileList = files.results || [];
-  const fileCards = fileList.map(file => {
-    const fileName = file.file_name;
-    const fileSize = formatSize(file.file_size || 0);
-    const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
-    // 文件预览信息和操作元素
-    return `
-      <div class="file-card" data-url="${file.url}">
-        <!-- 这是一个复选框元素 -->
-        <!-- <input type="checkbox" class="file-checkbox"> -->
-        <div class="file-preview">
-          ${getPreviewHtml(file.url)}
-        </div>
-        <div class="file-info">
-          <div>${fileName}</div>
-          <div>${fileSize}</div>
-          <div>${createdAt}</div>
-        </div>
-        <div class="file-actions">
-          <button class="btn btn-copy" onclick="showQRCode('${file.url}')">分享</button>
-          <a class="btn btn-down" href="${file.url}" download="${fileName}" target="_blank">下载</a>
-          <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
-        </div>
-      </div>
-    `;
-  }).join('');
+        const isWebpMode = config.webpEnabled && file.webp_url;
+        if (isWebpMode) {
+          finalUrl = file.webp_url;
+          displayFileName = fileName.replace(/\.[^/.]+$/, '.webp');
+        }
 
-  // 二维码分享元素
-  const qrModal = `
+        return `
+        <div class="file-card" data-url="${file.url}">
+          <div class="file-preview">
+            ${getPreviewHtml(finalUrl)}
+          </div>
+          <div class="file-info">
+            <div>${displayFileName}</div>
+            <div>${fileSize}</div>
+            <div>${createdAt}</div>
+          </div>
+          <div class="file-actions">
+            <button class="btn btn-copy" onclick="showQRCode('${finalUrl}')">分享</button>
+            <a class="btn btn-down" href="${finalUrl}" download="${displayFileName}" target="_blank">下载</a>
+            <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
+          </div>
+        </div>
+      `;
+      })
+      .join('');
+
+    // 二维码分享元素
+    const qrModal = `
     <div id="qrModal" class="qr-modal">
       <div class="qr-content">
         <div id="qrcode"></div>
@@ -285,40 +298,36 @@ async function handleAdminRequest(request, config) {
     </div>
   `;
 
-  const html = generateAdminPage(fileCards, qrModal);
-  return new Response(html, {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-  });
+    const html = generateAdminPage(fileCards, qrModal);
+    return new Response(html, {
+      headers: { 'Content-Type': 'text/html;charset=UTF-8' },
+    });
+  } catch (error) {
+    console.error('[Error]:', error);
+    return new Response(`服务器内部错误: ${error.message}`, { status: 500, headers: { 'Content-Type': 'text/html' } });
+  }
 }
 
 // 处理文件搜索
 async function handleSearchRequest(request, config) {
-  if (config.enableAuth && !authenticate(request, config)) {
-    return Response.redirect(`${new URL(request.url).origin}/`, 302);
-  }
-
   try {
     const { query } = await request.json();
-    const searchPattern = `%${query}%`;    
-    const files = await config.database.prepare(
-      `SELECT url, fileId, message_id, created_at, file_name, file_size, mime_type
-       FROM files 
-       WHERE file_name LIKE ? ESCAPE '!'
-       COLLATE NOCASE
-       ORDER BY created_at DESC`
-    ).bind(searchPattern).all();
+    const searchPattern = `%${query}%`;
+    const files = await config.database
+      .prepare(
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, file_size, mime_type
+        FROM files 
+        WHERE file_name LIKE ? ESCAPE '!'
+        COLLATE NOCASE
+        ORDER BY created_at DESC`
+      )
+      .bind(searchPattern)
+      .all();
 
-    return new Response(
-      JSON.stringify({ files: files.results || [] }),
-      { headers: { 'Content-Type': 'application/json' }}
-    );
-
+    return new Response(JSON.stringify({ files: files.results || [] }), { headers: { 'Content-Type': 'application/json' } });
   } catch (error) {
-    console.error(`[Search Error] ${error.message}`);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' }}
-    );
+    console.error('[error] Search request failed:', error);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
 
@@ -345,219 +354,188 @@ async function handleFileRequest(request, config) {
   const url = request.url;
   const cache = caches.default;
   const cacheKey = new Request(url);
+  const urlObj = new URL(url);
+  const isWebpRequest = urlObj.pathname.toLowerCase().endsWith('.webp'); // 确定D1查询字段
+  const lookupColumn = config.webpEnabled && isWebpRequest ? 'webp_url' : 'url';
 
   try {
-    // 尝试从缓存获取
+    // 尝试从缓存中获取
     const cachedResponse = await cache.match(cacheKey);
-    if (cachedResponse) {
-      console.log(`[Cache Hit] ${url}`);
-      return cachedResponse;
-    }
+    if (cachedResponse) return cachedResponse;
 
     // 从数据库查询文件
-    const file = await config.database.prepare(
-      `SELECT fileId, message_id, file_name, mime_type
-      FROM files WHERE url = ?`
-    ).bind(url).first();
+    const file = await config.database
+      .prepare(
+        `SELECT url, webp_url, fileId, message_id, file_name, mime_type
+         FROM files WHERE ${lookupColumn} = ?`
+      )
+      .bind(url)
+      .first();
 
     if (!file) {
-      console.log(`[404] File not found: ${url}`);
-      return new Response('文件不存在', { 
+      return new Response('文件不存在', {
         status: 404,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       });
     }
 
-    // 获取 Telegram 文件路径
-    const tgResponse = await fetch(
-      `https://api.telegram.org/bot${config.tgBotToken}/getFile?file_id=${file.fileId}`
-    );
+    // 重定向条件：WebP 启用 AND 请求的是原始 URL (.jpg/png) AND 数据库中有 webp_url 记录
+    if (config.webpEnabled && !isWebpRequest && file.webp_url) {
+      return Response.redirect(file.webp_url, 302); // 302 临时重定向
+    }
 
+    // 获取 Telegram 文件
+    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/getFile?file_id=${file.fileId}`);
     if (!tgResponse.ok) {
-      console.error(`[Telegram API Error] ${await tgResponse.text()} for file ${file.fileId}`);
-      return new Response('获取文件失败', { 
+      return new Response('获取文件失败', {
         status: 500,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       });
     }
 
     const tgData = await tgResponse.json();
     const filePath = tgData.result?.file_path;
-
     if (!filePath) {
-      console.error(`[Invalid Path] No file_path in response for ${file.fileId}`);
-      return new Response('文件路径无效', { 
+      return new Response('文件路径无效', {
         status: 404,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       });
     }
 
-    // 下载文件
+    // TG原始文件URL
     const fileUrl = `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
-    const fileResponse = await fetch(fileUrl);
+
+    let fileResponse;
+    let contentType = file.mime_type;
+
+    // 确定是否执行 Image Resizing 转换
+    const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.mime_type);
+    const shouldConvert = config.webpEnabled && isWebpRequest && isConvertibleImage;
+
+    if (shouldConvert) {
+      const resizingOptions = `format=webp,quality=80,fit=contain`;
+      const imageResizingUrl = `https://${config.domain}/cdn-cgi/image/${resizingOptions}/${encodeURIComponent(fileUrl)}`;
+      fileResponse = await fetch(imageResizingUrl);
+
+      if (fileResponse.ok) {
+        contentType = fileResponse.headers.get('Content-Type') || 'image/webp';
+      }
+    }
+    if (!fileResponse || !fileResponse.ok) fileResponse = await fetch(fileUrl);
 
     if (!fileResponse.ok) {
-      console.error(`[Download Error] Failed to download from ${fileUrl}`);
-      return new Response('下载文件失败', { 
+      return new Response('下载文件失败', {
         status: 500,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       });
     }
 
-    // 使用存储的 MIME 类型或根据扩展名判断
-    const contentType = file.mime_type || getContentType(url.split('.').pop().toLowerCase());
-
-    // 创建响应并缓存
+    // 创建响应并缓存 (使用新的 contentType)
+    let finalFileName = file.file_name || '';
+    if (isWebpRequest) finalFileName = finalFileName.replace(/\.[^/.]+$/, '.webp');
     const response = new Response(fileResponse.body, {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000',
         'X-Content-Type-Options': 'nosniff',
         'Access-Control-Allow-Origin': '*',
-        'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(file.file_name || '')}`
-      }
+        'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(finalFileName)}`,
+      },
     });
 
     await cache.put(cacheKey, response.clone());
-    console.log(`[Cache Set] ${url}`);
     return response;
-
   } catch (error) {
-    console.error(`[Error] ${error.message} for ${url}`);
-    return new Response('服务器内部错误', { 
+    console.error('[error] File request failed:', error);
+    return new Response('服务器内部错误', {
       status: 500,
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
     });
   }
 }
 
 // 处理文件删除
 async function handleDeleteRequest(request, config) {
-  if (config.enableAuth && !authenticate(request, config)) {
-    return Response.redirect(`${new URL(request.url).origin}/`, 302);
-  }
-
   try {
     const { url } = await request.json();
     if (!url || typeof url !== 'string') {
       return new Response(JSON.stringify({ error: '无效的URL' }), {
-        status: 400, 
-        headers: { 'Content-Type': 'application/json' }
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    const file = await config.database.prepare(
-      'SELECT fileId, message_id FROM files WHERE url = ?'
-    ).bind(url).first();    
+    const file = await config.database.prepare('SELECT fileId, message_id FROM files WHERE url = ?').bind(url).first();
     if (!file) {
-      return new Response(JSON.stringify({ error: '文件不存在' }), { 
-        status: 404, 
-        headers: { 'Content-Type': 'application/json' }
+      return new Response(JSON.stringify({ error: '文件不存在' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
       });
-    }    
+    }
 
     let deleteError = null;
 
     try {
-      const deleteResponse = await fetch(
-        `https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`
-      );
+      const deleteResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`);
       if (!deleteResponse.ok) {
         const errorData = await deleteResponse.json();
-        console.error(`[Telegram API Error] ${JSON.stringify(errorData)}`);
+        console.error('[error] Telegram message delete failed:', errorData);
         throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
       }
-    } catch (error) { deleteError = error.message; }
+    } catch (error) {
+      deleteError = error.message;
+    }
 
     // 删除数据库表数据，即使Telegram删除失败也会删除数据库记录
     await config.database.prepare('DELETE FROM files WHERE url = ?').bind(url).run();
-    
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
-        message: deleteError ? `文件已从数据库删除，但Telegram消息删除失败: ${deleteError}` : '文件删除成功'
+        message: deleteError ? `文件已从数据库删除，但Telegram消息删除失败: ${deleteError}` : '文件删除成功',
       }),
-      { headers: { 'Content-Type': 'application/json' }}
+      { headers: { 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
-    console.error(`[Delete Error] ${error.message}`);
+    console.error('[error] File delete request failed:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message.includes('message to delete not found') ? '文件已从频道移除' : error.message 
+      JSON.stringify({
+        error: error.message.includes('message to delete not found') ? '文件已从频道移除' : error.message,
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' }}
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
-}
-
-// 支持上传的文件类型
-function getContentType(ext) {
-  const types = {
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg', 
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-    icon: 'image/x-icon',
-    mp4: 'video/mp4',
-    webm: 'video/webm',
-    mp3: 'audio/mpeg',
-    wav: 'audio/wav',
-    ogg: 'audio/ogg',
-    pdf: 'application/pdf',
-    txt: 'text/plain',
-    md: 'text/markdown',
-    zip: 'application/zip',
-    rar: 'application/x-rar-compressed',
-    json: 'application/json',
-    xml: 'application/xml',
-    ini: 'text/plain',
-    js: 'application/javascript',
-    yml: 'application/yaml',
-    yaml: 'application/yaml',
-    py: 'text/x-python',
-    sh: 'application/x-sh'
-  };
-  return types[ext] || 'application/octet-stream';
 }
 
 async function handleBingImagesRequest() {
   const cache = caches.default;
   const cacheKey = new Request('https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=5');
-  
+
   const cachedResponse = await cache.match(cacheKey);
-  if (cachedResponse) {
-    console.log('Returning cached response');
-    return cachedResponse;
-  }
-  
+  if (cachedResponse) return cachedResponse;
+
   try {
     const res = await fetch(cacheKey);
     if (!res.ok) {
-      console.error(`Bing API 请求失败，状态码：${res.status}`);
       return new Response('请求 Bing API 失败', { status: res.status });
     }
-    
+
     const bingData = await res.json();
-    const images = bingData.images.map(image => ({ url: `https://cn.bing.com${image.url}` }));
-    const returnData = { status: true, message: "操作成功", data: images };
-    
-    const response = new Response(JSON.stringify(returnData), { 
-      status: 200, 
-      headers: { 
+    const images = bingData.images.map((image) => ({ url: `https://cn.bing.com${image.url}` }));
+    const returnData = { status: true, message: '操作成功', data: images };
+
+    const response = new Response(JSON.stringify(returnData), {
+      status: 200,
+      headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=21600',
-        'Access-Control-Allow-Origin': '*' 
-      }
+        'Access-Control-Allow-Origin': '*',
+      },
     });
-    
+
     await cache.put(cacheKey, response.clone());
-    console.log('响应数据已缓存');
     return response;
   } catch (error) {
-    console.error('请求 Bing API 过程中发生错误:', error);
+    console.error('[error] Bing images request failed:', error);
     return new Response('请求 Bing API 失败', { status: 500 });
   }
 }
