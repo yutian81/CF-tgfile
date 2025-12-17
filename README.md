@@ -28,7 +28,6 @@
 ALTER TABLE files ADD COLUMN webp_url TEXT;
 CREATE UNIQUE INDEX idx_webp_url ON files (webp_url) WHERE webp_url IS NOT NULL;
 ALTER TABLE files ADD COLUMN webp_file_name TEXT;
-ALTER TABLE files ADD COLUMN webp_file_size INTEGER;
 ```
 
 - 新部署无需运行以上 SQL 命令，新代码中的表结构已包含新列
