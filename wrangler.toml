@@ -6,7 +6,7 @@ compatibility_date = "2024-07-18"
 [[d1_databases]]
 binding = "DATABASE"
 database_name = "tgfile-db"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" # 替换成你的 D1 数据库 ID
+database_id = "42771e0b-c046-4fd2-a313-1ac40ace9726" # 替换成你的 D1 数据库 ID
 
 # 静态资源配置，将前端构建产物指向 Worker
 [site]
@@ -26,4 +26,5 @@ tag = "v1" # migration tag
 new_classes = ["D1_binding"] # class of binding to apply migrations to
 
 # 注意: USERNAME, PASSWORD, 和 TG_BOT_TOKEN 等敏感信息
+
 # 应该通过 wrangler secret put <KEY> 命令设置，而不是写在配置文件里。
