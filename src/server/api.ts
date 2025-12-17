@@ -37,7 +37,6 @@ interface TelegramErrorResponse {
 // Bing API 图片的结构
 interface BingImage {
     url: string;
-    // ... bing api 还返回其他字段，但我们只关心 url
 }
 interface BingApiResponse {
     images: BingImage[];
@@ -45,7 +44,7 @@ interface BingApiResponse {
 
 
 // --- 工具函数 ---
-function getContentType(ext: string): string {
+export function getContentType(ext: string): string {
     const types: Record<string, string> = {
         jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
         webp: 'image/webp', svg: 'image/svg+xml', icon: 'image/x-icon', mp4: 'video/mp4',
@@ -55,7 +54,6 @@ function getContentType(ext: string): string {
     };
     return types[ext] || 'application/octet-stream';
 }
-
 
 const api = new Hono<{ Bindings: Bindings }>();
 
@@ -158,7 +156,7 @@ api.post('/upload', async (c) => {
         }
 
         const tgData = await tgResponse.json<TelegramResponse>();
-        const result = tgData.result; // ✅ 修正点：现在 result 是类型安全的
+        const result = tgData.result;
         const messageId = result?.message_id;
         const fileId = result?.document?.file_id || result?.video?.file_id || result?.audio?.file_id || (result?.photo && result.photo[result.photo.length - 1]?.file_id);
 
@@ -189,17 +187,13 @@ api.post('/delete', async (c) => {
     try {
         const { url } = await c.req.json<{ url: string }>();
         if (!url) return c.json({ error: '无效的URL' }, 400);
-
         const file = await c.env.DATABASE.prepare('SELECT message_id FROM files WHERE url = ?').bind(url).first<{ message_id: number }>();
         if (!file) return c.json({ error: '文件不存在' }, 404);
-
         const deleteResponse = await fetch(`https://api.telegram.org/bot${c.env.TG_BOT_TOKEN}/deleteMessage?chat_id=${c.env.TG_CHAT_ID}&message_id=${file.message_id}`);
-        
         await c.env.DATABASE.prepare('DELETE FROM files WHERE url = ?').bind(url).run();
 
         if (!deleteResponse.ok) {
             const errorData = await deleteResponse.json<TelegramErrorResponse>();
-            // ✅ 修正点：现在 errorData.description 是类型安全的
             return c.json({ success: true, message: `文件已从数据库删除，但Telegram消息删除失败: ${errorData.description}` });
         }
         
@@ -220,7 +214,6 @@ api.get('/bing', async (c) => {
         if (!res.ok) return c.json({ error: '请求 Bing API 失败' }, 502);
 
         const bingData = await res.json<BingApiResponse>();
-        // 移除了 (image: any)，现在 image 类型会被自动推断为 BingImage
         const images = bingData.images.map((image) => ({ url: `https://cn.bing.com${image.url}` }));
         const returnData = { status: true, message: "操作成功", data: images };
 
