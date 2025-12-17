@@ -31,7 +31,7 @@ ALTER TABLE files ADD COLUMN webp_file_name TEXT;
 ALTER TABLE files ADD COLUMN webp_file_size INTEGER;
 ```
 
-- 新部署无需运行以上 SQL 命令，因为表结构已包含新列
+- 新部署无需运行以上 SQL 命令，新代码中的表结构已包含新列
 
 ## 2025-12-17 更新
 - 利用免费的 `CF Images` 实现将上传图片自动转换为 `webp` 格式 （免费额度：每月5000次唯一转换）
