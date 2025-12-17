@@ -12,10 +12,10 @@ database_id = "42771e0b-c046-4fd2-a313-1ac40ace9726" # 替换成你的 D1 数据
 # 定义 secrets (需要通过 wrangler secret put 命令设置)
 [vars]
 DOMAIN = "your.domain.com" # 替换成你的域名
-ENABLE_AUTH = "true"
-COOKIE = "7"
-MAX_SIZE_MB = "20"
+ENABLE_AUTH = "true" # 启用登录
+WEBP_ENABLED = "true" # 启用自动转化为 webp
 TG_CHAT_ID = "your_tg_id" # 替换成你的 Telegram Chat ID
+TG_BOT_TOKEN = "your_tg_bot_token" # 替换成你的 Telegram bot token
 
 # 注意: USERNAME, PASSWORD, 和 TG_BOT_TOKEN 等敏感信息
 # 应该通过 wrangler secret put <KEY> 命令设置，而不是写在配置文件里。
