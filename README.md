@@ -33,7 +33,7 @@ CREATE UNIQUE INDEX idx_webp_url ON files (webp_url) WHERE webp_url IS NOT NULL;
 ## 2025-12-17 更新
 - 利用免费的 `CF Images` 实现将上传图片自动转换为 `webp` 格式 （免费额度：每月5000次唯一转换）
    - 开启方法：环境变量 `WEBP_ENABLED`
-- 固定API接口便于第三方集成，通过环境变量 `API_TOKEN` 设置固定密钥，默认为 `tgfile-admin`，详见 API 文档
+- 固定API接口便于第三方集成，通过环境变量 `API_TOKEN` 设置固定密钥，默认为 `tgfile-admin`，详见 [API 文档](./api.md)
 - 大幅精简代码，优化性能
 
 ## 2025-02-11 更新
