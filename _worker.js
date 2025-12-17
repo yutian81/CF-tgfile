@@ -64,9 +64,8 @@ export default {
       '/bing': handleBingImagesRequest
     };
     const handler = routes[pathname];
-    if (handler) {
-      return await handler();
-    }
+    if (handler) return await handler();
+    
     // 处理文件访问请求
     return await handleFileRequest(request, config);
   }
@@ -99,15 +98,11 @@ function authenticate(request, config) {
 // 处理路由
 async function handleAuthRequest(request, config) {
   if (config.enableAuth) {
-    // 使用 authenticate 函数检查用户是否已认证
     const isAuthenticated = authenticate(request, config);
-    if (!isAuthenticated) {
-      return handleLoginRequest(request, config);  // 认证失败，跳转到登录页面
-    }
+    if (!isAuthenticated) return handleLoginRequest(request, config);  // 认证失败，跳转到登录页面
     return handleUploadRequest(request, config);  // 认证通过，跳转到上传页面
   }
-  // 如果没有启用认证，直接跳转到上传页面
-  return handleUploadRequest(request, config);
+  return handleUploadRequest(request, config); // 如果没有启用认证，直接跳转到上传页面
 }
 
 // 处理登录
@@ -165,12 +160,11 @@ async function handleUploadRequest(request, config) {
     const ext = (file.name.split('.').pop() || '').toLowerCase();  //获取文件扩展名
     const mimeType = getContentType(ext);  // 获取文件类型
     const [mainType] = mimeType.split('/'); // 获取主类型
-    // 定义类型映射
     const typeMap = {
       image: { method: 'sendPhoto', field: 'photo' },
       video: { method: 'sendVideo', field: 'video' },
       audio: { method: 'sendAudio', field: 'audio' }
-    };
+    }; // 定义类型映射
     let { method = 'sendDocument', field = 'document' } = typeMap[mainType] || {};
 
     if (['application', 'text'].includes(mainType)) {
@@ -200,8 +194,6 @@ async function handleUploadRequest(request, config) {
     const time = Date.now();
     const timestamp = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
     const url = `https://${config.domain}/${time}.${ext}`;
-    // const datetime = timestamp.split('T')[0].replace(/-/g, ''); // 获取ISO时间戳的纯数字日期
-    // const url = `https://${config.domain}/${datetime}-${time}.${ext}`; 
     
     await config.database.prepare(`
       INSERT INTO files (url, fileId, message_id, created_at, file_name, file_size, mime_type) 
@@ -492,8 +484,7 @@ async function handleDeleteRequest(request, config) {
     console.error(`[Delete Error] ${error.message}`);
     return new Response(
       JSON.stringify({ 
-        error: error.message.includes('message to delete not found') ? 
-              '文件已从频道移除' : error.message 
+        error: error.message.includes('message to delete not found') ? '文件已从频道移除' : error.message 
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' }}
     );
