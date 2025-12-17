@@ -159,6 +159,19 @@ async function handleLoginRequest(request, config) {
   });
 }
 
+// 文件大小计算函数
+function formatSize(bytes) {
+  if (bytes === null || bytes === undefined || isNaN(bytes)) return '0.00 B';
+  let size = Number(bytes);
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  return `${size.toFixed(2)} ${units[unitIndex]}`;
+}
+
 // 支持预览的文件类型
 function getPreviewHtml(url) {
   const ext = (url.split('.').pop() || '').toLowerCase();
@@ -315,7 +328,7 @@ async function handleAdminRequest(request, config) {
         if (isWebpMode) {
           displayUrl = file.webp_url;
           displayFileName = file.webp_file_name;
-          fileSizeBytes = file.webp_file_size;
+          fileSizeBytes = file.webp_file_size || 0;
         }
         const displayFileSize = formatSize(fileSizeBytes);
 
@@ -556,18 +569,6 @@ async function handleBingImagesRequest() {
     console.error('[error] Bing images request failed:', error);
     return new Response('请求 Bing API 失败', { status: 500 });
   }
-}
-
-// 文件大小计算函数
-function formatSize(bytes) {
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-  return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
 function headLinks() {
