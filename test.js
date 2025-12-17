@@ -39,7 +39,7 @@ export default {
       username: env.USERNAME || 'admin',
       password: env.PASSWORD || 'admin',
       apiToken: env.API_TOKEN || 'tgfile-admin',
-      enableAuth: env.ENABLE_AUTH === 'false', // 是否开启身份认证，默认不开启
+      enableAuth: env.ENABLE_AUTH === 'true', // 是否开启身份认证，默认不开启
       webpEnabled: env.WEBP_ENABLED === 'true', // 是否开启 WebP 转换，默认不开启
       tgBotToken: env.TG_BOT_TOKEN,
       tgChatId: env.TG_CHAT_ID,
@@ -268,7 +268,7 @@ async function handleUploadRequest(request, config) {
       .prepare(
         `
       INSERT INTO files (url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, webp_file_size, mime_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
       )
       .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, webpFileName, file.size, webpFileSize, file.type)
@@ -317,7 +317,7 @@ async function handleAdminRequest(request, config) {
           displayFileName = file.webp_file_name;
           fileSizeBytes = file.webp_file_size;
         }
-        const  = formatSize(fileSizeBytes);
+        const displayFileSize = formatSize(fileSizeBytes);
 
         return `
         <div class="file-card" data-url="${file.url}">
@@ -330,8 +330,8 @@ async function handleAdminRequest(request, config) {
             <div>${createdAt}</div>
           </div>
           <div class="file-actions">
-            <button class="btn btn-copy" onclick="showQRCode('${finalUrl}')">分享</button>
-            <a class="btn btn-down" href="${finalUrl}" download="${displayFileName}" target="_blank">下载</a>
+            <button class="btn btn-copy" onclick="showQRCode('${displayUrl}')">分享</button>
+            <a class="btn btn-down" href="${displayUrl}" download="${displayFileName}" target="_blank">下载</a>
             <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
           </div>
         </div>
@@ -372,6 +372,7 @@ async function handleSearchRequest(request, config) {
         `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, webp_file_size, mime_type
         FROM files 
         WHERE file_name LIKE ? ESCAPE '!'
+        OR webp_file_name LIKE ? ESCAPE '!'
         COLLATE NOCASE
         ORDER BY created_at DESC`
       )
