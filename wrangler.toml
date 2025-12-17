@@ -9,7 +9,7 @@ binding = "DATABASE"
 database_name = "tgfile-db"
 database_id = "42771e0b-c046-4fd2-a313-1ac40ace9726" # 替换成你的 D1 数据库 ID
 
-# 定义 secrets (需要通过 wrangler secret put 命令设置)
+# 定义环境变量
 [vars]
 DOMAIN = "your.domain.com" # 替换成你的域名
 ENABLE_AUTH = "true" # 启用登录
@@ -18,5 +18,4 @@ TG_CHAT_ID = "your_tg_id" # 替换成你的 Telegram Chat ID
 TG_BOT_TOKEN = "your_tg_bot_token" # 替换成你的 Telegram bot token
 
 # 注意: USERNAME, PASSWORD, 和 TG_BOT_TOKEN 等敏感信息
-# 应该通过 wrangler secret put <KEY> 命令设置，而不是写在配置文件里。
-
+# 应该通过 wrangler secret put <KEY> 命令设置，而不是写在配置文件里
