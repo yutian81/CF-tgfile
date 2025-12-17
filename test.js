@@ -273,11 +273,12 @@ async function handleUploadRequest(request, config) {
       .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, webpFileName, file.size, file.type)
       .run();
 
-    return new Response(JSON.stringify({
-      status: 1, msg: '✔ 上传成功', url: finalUrl, file: finalFileName
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({status: 1, msg: '✔ 上传成功', url: finalUrl, file: finalFileName}), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
-    let statusCode = 500; // 默认500
+    let statusCode = 500;
     if (error.message.includes(`文件超过${config.maxSizeMB}MB限制`)) {
       statusCode = 400; // 客户端错误：文件大小超限
     } else if (error.message.includes('Telegram参数配置错误')) {
@@ -288,7 +289,10 @@ async function handleUploadRequest(request, config) {
       statusCode = 504; // 网络超时或断网
     }
     console.error(`[Error] ${error.message}`, error);
-    return new Response(JSON.stringify({ status: 0, msg: '✘ 上传失败', error: error.message }), { status: statusCode, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ status: 0, msg: '✘ 上传失败', error: error.message }), {
+      status: statusCode,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -356,7 +360,10 @@ async function handleAdminRequest(request, config) {
     });
   } catch (error) {
     console.error('[Error]:', error);
-    return new Response(`服务器内部错误: ${error.message}`, { status: 500, headers: { 'Content-Type': 'text/html' } });
+    return new Response(`服务器内部错误: ${error.message}`, {
+      status: 500,
+      headers: { 'Content-Type': 'text/html' }
+    });
   }
 }
 
@@ -377,10 +384,15 @@ async function handleSearchRequest(request, config) {
       .bind(searchPattern, searchPattern)
       .all();
 
-    return new Response(JSON.stringify({ files: files.results || [] }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ files: files.results || [] }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
     console.error('[error] Search request failed:', error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -481,7 +493,10 @@ async function handleDeleteRequest(request, config) {
       });
     }
 
-    const file = await config.database.prepare('SELECT fileId, message_id FROM files WHERE url = ?').bind(url).first();
+    const file = await config.database
+      .prepare('SELECT fileId, message_id FROM files WHERE url = ? OR webp_url = ?')
+      .bind(url, url)
+      .first();
     if (!file) {
       return new Response(JSON.stringify({ error: '文件不存在' }), {
         status: 404,
@@ -507,7 +522,10 @@ async function handleDeleteRequest(request, config) {
     })();
 
     // 删除数据库表数据，即使Telegram删除失败也会删除数据库记录
-    await config.database.prepare('DELETE FROM files WHERE url = ?').bind(url).run();
+    await config.database
+      .prepare('DELETE FROM files WHERE url = ? OR webp_url = ?')
+      .bind(url, url)
+      .run();
     return new Response(
       JSON.stringify({
         success: true,
@@ -517,12 +535,10 @@ async function handleDeleteRequest(request, config) {
     );
   } catch (error) {
     console.error('[error] File delete request failed:', error);
-    return new Response(
-      JSON.stringify({
-        error: error.message,
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({error: error.message}),{
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
