@@ -39,7 +39,7 @@ export default {
       username: env.USERNAME || 'admin',
       password: env.PASSWORD || 'admin',
       apiToken: env.API_TOKEN || 'tgfile-admin',
-      enableAuth: env.ENABLE_AUTH === 'true', // 是否开启身份认证，默认不开启
+      enableAuth: env.ENABLE_AUTH === 'false', // 是否开启身份认证，默认开启
       webpEnabled: env.WEBP_ENABLED === 'true', // 是否开启 WebP 转换，默认不开启
       tgBotToken: env.TG_BOT_TOKEN,
       tgChatId: env.TG_CHAT_ID,
