@@ -21,10 +21,9 @@ MAX_SIZE_MB = "20"
 TG_CHAT_ID = "your_chat_id" # 替换成你的 Telegram Chat ID
 
 # D1 数据库迁移配置 (用于初始化表结构)
-[[migrations]]
-tag = "v1" # migration tag
-new_classes = ["D1_binding"] # class of binding to apply migrations to
+# [[migrations]]
+# tag = "v1" # migration tag
+# new_classes = ["D1_binding"] # class of binding to apply migrations to
 
 # 注意: USERNAME, PASSWORD, 和 TG_BOT_TOKEN 等敏感信息
-
 # 应该通过 wrangler secret put <KEY> 命令设置，而不是写在配置文件里。
