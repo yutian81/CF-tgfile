@@ -428,7 +428,7 @@ async function handleFileRequest(request, config) {
 
     // 重定向条件：WebP 启用 AND 请求的是原始 URL, AND 数据库中有 webp_url 记录
     if (config.webpEnabled && !isWebpRequest && file.webp_url) {
-      return Response.redirect(file.webp_url, 302);
+      return Response.redirect(file.webp_url, 301);
     }
 
     // 获取 Telegram 文件
