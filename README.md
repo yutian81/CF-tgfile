@@ -62,7 +62,7 @@ ALTER TABLE files ADD COLUMN webp_file_name TEXT;
 3. **配置环境变量**：  
    | 变量名 | 变量值 | 是否必须 | 备注 |
    | ----- | ------ | ------- | ---- |
-   | DOMAIN | 你项目绑定的域名 | √ |    |
+   | DOMAIN | 你项目绑定的域名 | √ | 如果不绑域名，就填 worker 域名，但无法开启 webp 转换 |
    | USERNAME | 登录用户名 | √ |  默认 admin  |
    | PASSWORD | 登录密码 | √ | 默认 admin  |
    | API_TOKEN | API接口密钥 | × | 默认 tgfile-admin  |
