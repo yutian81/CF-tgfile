@@ -15,8 +15,8 @@ jobs:
     env:
       USERNAME: ${{ secrets.USERNAME }}
       PASSWORD: ${{ secrets.PASSWORD }}
-      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID}}
-      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN}}
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
       CF_D1_ID: ${{ secrets.CF_D1_ID }}
 
     steps:
@@ -28,56 +28,85 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🆙 更新并安装最新 Wrangler
+      - name: 🆙 安装最新 Wrangler
         run: npm install -g wrangler@latest
 
-      - name: 🔄 替换 wrangler.toml 中的变量
+      - name: 🔄 配置解析与变量替换
         id: config_setup
         run: |
-          [ -n "${CF_D1_ID}" ] || { echo "🔴 错误: 必须设置 'CF_D1_ID' 变量"; exit 1; }  
+          if [ -z "${CF_D1_ID}" ]; then
+            echo "::error title=❌ 部署失败::必须在 [Action Secrets] 中设置 'CF_D1_ID'"
+            exit 1
+          fi
           sed -i "s#{CF_D1_ID}#${CF_D1_ID}#g" wrangler.toml
 
           WORKER_NAME=$(grep '^name =' wrangler.toml | awk -F '"' '{print $2}')
-          [ -n "$WORKER_NAME" ] || { echo "🔴 错误: 未能在 wrangler.toml 中找到 'name' 字段"; exit 1; }
+          if [ -z "$WORKER_NAME" ]; then
+            echo "::error file=wrangler.toml,line=1,title=❌ 配置错误::未能在 [wrangler.toml] 中找到 'name' 字段"
+            exit 1
+          fi
 
-          echo -e "\n🎉 项目配置信息如下:"
-          echo "-------------------"
-          cat wrangler.toml
-          echo "-------------------"
+          echo "✅ 项目名称: $WORKER_NAME"
           echo "worker_name=$WORKER_NAME" >> $GITHUB_OUTPUT
 
-      - name: ⚙️ 动态配置 Worker 环境变量
+          echo -e "\n--- 替换后的 wrangler.toml ---"
+          cat wrangler.toml
+          echo "----------------------------"
+
+      - name: ⚙️ 动态生成环境变量列表
         id: dynamic_vars
         run: |
           VARS=""
-          [ -n "$USERNAME" ] && [ -n "$PASSWORD" ] && VARS+="USERNAME"$'\n'"PASSWORD"$'\n' || echo "⚠️ 警告: USERNAME/PASSWORD 变量未设置，默认均为 admin"
-          [ -n "$TG_CHAT_ID" ] && [ -n "$TG_BOT_TOKEN" ] && VARS+="TG_CHAT_ID"$'\n'"TG_BOT_TOKEN"$'\n' || echo "⚠️ 警告: TG 变量未设置，无法执行 TG 通知"
 
-          if [ -n "$VARS" ]; then
-            printf 'vars_list<<EOF\n%sEOF\n' "$VARS" >>"$GITHUB_OUTPUT"
-            echo -e "\n✅ 传递给 Wrangler 的变量名:"
-            printf '%s' "$VARS"
+          if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+            VARS+="USERNAME"$'\n'"PASSWORD"$'\n'
+            echo "✅ 已载入登录凭证配置"
           else
-            echo -e "\n⚠️ 没有需要传递的变量名"
-            printf 'vars_list=\n' >>"$GITHUB_OUTPUT"
+            echo "::warning title=⚠️ 登录配置缺失::[Action Secrets] 中未设置 USERNAME/PASSWORD，默认值均为 admin"
           fi
 
-      - name: 🚀 部署到 CF Worker
+          if [ -n "$TG_CHAT_ID" ] && [ -n "$TG_BOT_TOKEN" ]; then
+            VARS+="TG_CHAT_ID"$'\n'"TG_BOT_TOKEN"$'\n'
+            echo "✅ 已载入 Telegram 通知配置"
+          else
+            echo "::warning title=⚠️ TG 通知未启用::[Action Secrets] 中未设置 TG_CHAT_ID/TG_BOT_TOKEN，将无法发送通知"
+          fi
+
+          if [ -n "$VARS" ]; then
+            printf 'vars_list<<EOF\n%sEOF\n' "$VARS" >> "$GITHUB_OUTPUT"
+          else
+            printf 'vars_list=\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🚀 部署到 Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ vars.CF_ACCOUNT_ID }}
           vars: ${{ steps.dynamic_vars.outputs.vars_list }}
 
-      - name: ✨ 输出 Worker 管理后台
+      - name: ✨ 部署总结
         env:
           WORKER_NAME: ${{ steps.config_setup.outputs.worker_name }}
           ACCOUNT_ID: ${{ vars.CF_ACCOUNT_ID }}
         run: |
-          echo -e "\n✨✨✨ 部署完成 ✨✨✨"
-          echo "🌐 点击以下链接可访问项目管理后台"
+          echo ""
+          echo "::notice title=🚀 部署成功::恭喜！您的 [$WORKER_NAME] 项目已上线"
+          echo "🔗 CF管理后台 (点击直接跳转):"
           echo "https://dash.cloudflare.com/${ACCOUNT_ID}/workers/services/view/${WORKER_NAME}/production/settings"
-          echo "🚀 建议: 给项目绑定一个自定义域名"
-          echo "🚀 手动新增环境变量 DOMAIN, 值为绑定的域名"
-          echo "🚀 手动新增环境变量 WEBP_ENABLED, 值为 true"
-          echo "🚀 完成以上步骤，方可开启图片 webp 的自动转换"
+          echo ""
+          echo "::warning title=⚠️ 重要提示::必看以下说明!!!"
+          echo "-----------------------------------------------------"
+          echo "为了确保项目运行在最佳状态，建议完成以下配置："
+          echo "🚀 绑定自定义域名"
+          echo "🚀 开启 WebP 图片自动转换 (手动新增环境变量):"
+          echo "    - 变量名: DOMAIN        值: 自定义域名"
+          echo "    - 变量名: WEBP_ENABLED  值: true"
+          echo "注意：完成上述步骤后，系统将自动识别并转换 WebP 格式"
+          echo "-----------------------------------------------------"
+          echo ""
+          echo "::group::💡 其他可选环境变量（点击展开查看）"
+          echo "- API TOKEN: API接口密钥, 默认为 tgfile-admin, 用于自动化集成"
+          echo "- COOKIE: COOKIE有效期, 默认为 7, 单位：天"
+          echo "- ENABLE_AUTH: 是否启用登录, 默认为 true, 可设置为 false 禁用登录"
+          echo "::endgroup::"
