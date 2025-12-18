@@ -1,0 +1,83 @@
+name: 自动部署到 CF Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '_worker.js'
+      - 'wrangler.toml'
+  workflow_dispatch:
+
+jobs:
+  auto-deploy:
+    runs-on: ubuntu-latest
+    env:
+      USERNAME: ${{ secrets.USERNAME }}
+      PASSWORD: ${{ secrets.PASSWORD }}
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID}}
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN}}
+      CF_D1_ID: ${{ secrets.CF_D1_ID }}
+
+    steps:
+      - name: ⬇️ 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 🛠️ 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🆙 更新并安装最新 Wrangler
+        run: npm install -g wrangler@latest
+
+      - name: 🔄 替换 wrangler.toml 中的变量
+        id: config_setup
+        run: |
+          [ -n "${CF_D1_ID}" ] || { echo "🔴 错误: 必须设置 'CF_D1_ID' 变量"; exit 1; }  
+          sed -i "s#{CF_D1_ID}#${CF_D1_ID}#g" wrangler.toml
+
+          WORKER_NAME=$(grep '^name =' wrangler.toml | awk -F '"' '{print $2}')
+          [ -n "$WORKER_NAME" ] || { echo "🔴 错误: 未能在 wrangler.toml 中找到 'name' 字段"; exit 1; }
+
+          echo -e "\n🎉 项目配置信息如下:"
+          echo "-------------------"
+          cat wrangler.toml
+          echo "-------------------"
+          echo "worker_name=$WORKER_NAME" >> $GITHUB_OUTPUT
+
+      - name: ⚙️ 动态配置 Worker 环境变量
+        id: dynamic_vars
+        run: |
+          VARS=""
+          [ -n "$USERNAME" ] && [ -n "$PASSWORD" ] && VARS+="USERNAME"$'\n'"PASSWORD"$'\n' || echo "⚠️ 警告: USERNAME/PASSWORD 变量未设置，默认均为 admin"
+          [ -n "$TG_CHAT_ID" ] && [ -n "$TG_BOT_TOKEN" ] && VARS+="TG_CHAT_ID"$'\n'"TG_BOT_TOKEN"$'\n' || echo "⚠️ 警告: TG 变量未设置，无法执行 TG 通知"
+
+          if [ -n "$VARS" ]; then
+            printf 'vars_list<<EOF\n%sEOF\n' "$VARS" >>"$GITHUB_OUTPUT"
+            echo -e "\n✅ 传递给 Wrangler 的变量名:"
+            printf '%s' "$VARS"
+          else
+            echo -e "\n⚠️ 没有需要传递的变量名"
+            printf 'vars_list=\n' >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: 🚀 部署到 CF Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ vars.CF_ACCOUNT_ID }}
+          vars: ${{ steps.dynamic_vars.outputs.vars_list }}
+
+      - name: ✨ 输出 Worker 管理后台
+        env:
+          WORKER_NAME: ${{ steps.config_setup.outputs.worker_name }}
+          ACCOUNT_ID: ${{ vars.CF_ACCOUNT_ID }}
+        run: |
+          echo -e "\n✨✨✨ 部署完成 ✨✨✨"
+          echo "🌐 点击以下链接可访问项目管理后台"
+          echo "https://dash.cloudflare.com/${ACCOUNT_ID}/workers/services/view/${WORKER_NAME}/production/settings"
+          echo "🚀 建议: 给项目绑定一个自定义域名"
+          echo "🚀 手动新增环境变量 DOMAIN, 值为绑定的域名"
+          echo "🚀 手动新增环境变量 WEBP_ENABLED, 值为 true"
+          echo "🚀 完成以上步骤，方可开启图片 webp 的自动转换"
