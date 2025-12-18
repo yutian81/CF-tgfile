@@ -14,6 +14,7 @@ async function initDatabase(config) {
         message_id INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         file_name TEXT,
+        webp_file_name TEXT,
         file_size INTEGER,
         mime_type TEXT
       )
@@ -48,13 +49,11 @@ export default {
     // 初始化数据库
     await initDatabase(config);
 
-    // 路由处理
     const { pathname } = new URL(request.url);
 
     // 统一认证检查
     const publicRoutes = ['/config', '/bing'];
     const authRoutes = ['/', '/login'];
-
     if (config.enableAuth) {
       if (!publicRoutes.includes(pathname) && !authRoutes.includes(pathname)) {
         if (!authenticate(request, config)) {
@@ -114,7 +113,7 @@ function authenticate(request, config) {
   return false; // 两种认证方式都失败
 }
 
-// 处理路由
+// 处理身份验证
 async function handleAuthRequest(request, config) {
   if (config.enableAuth) {
     const isAuthenticated = authenticate(request, config);
@@ -157,6 +156,59 @@ async function handleLoginRequest(request, config) {
   });
 }
 
+// 文件大小计算函数
+function formatSize(bytes) {
+  if (bytes === null || bytes === undefined || isNaN(bytes)) return '0.00 B';
+  let size = Number(bytes);
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  return `${size.toFixed(2)} ${units[unitIndex]}`;
+}
+
+// 支持预览的文件类型
+function getPreviewHtml(url) {
+  const ext = (url.split('.').pop() || '').toLowerCase();
+  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'icon'].includes(ext);
+  const isVideo = ['mp4', 'webm'].includes(ext);
+  const isAudio = ['mp3', 'wav', 'ogg'].includes(ext);
+
+  if (isImage) {
+    return `<img src="${url}" alt="预览">`;
+  } else if (isVideo) {
+    return `<video src="${url}" controls></video>`;
+  } else if (isAudio) {
+    return `<audio src="${url}" controls></audio>`;
+  } else {
+    return `<div style="font-size: 48px">📄</div>`;
+  }
+}
+
+// 调用 TG getFile API 获取文件路径，并构造完整的下载 URL
+async function getTelegramFileUrl(fileId, config) {
+  try {
+    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/getFile?file_id=${fileId}`);
+    if (!tgResponse.ok) return null;
+    const tgData = await tgResponse.json();
+    const filePath = tgData.result?.file_path;
+    if (!filePath) return null;
+    // 构造完整的 Telegram 下载 URL
+    return `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
+  } catch (error) {
+    console.error('[error] Fetching Telegram file URL failed:', error);
+    return null;
+  }
+}
+
+// 构造 Cloudflare Image Resizing URL
+function buildImageResizingUrl(fileUrl, config) {
+  const webpParams = 'format=webp,quality=80';
+  return `https://${config.domain}/cdn-cgi/image/${webpParams}/${encodeURIComponent(fileUrl)}`;
+}
+
 // 处理文件上传
 async function handleUploadRequest(request, config) {
   if (request.method === 'GET') {
@@ -180,7 +232,6 @@ async function handleUploadRequest(request, config) {
       audio: { method: 'sendAudio', field: 'audio' },
     }; // 定义类型映射
     let { method = 'sendDocument', field = 'document' } = typeMap[mainType] || {};
-
     if (['application', 'text'].includes(mainType)) {
       method = 'sendDocument';
       field = 'document';
@@ -190,41 +241,44 @@ async function handleUploadRequest(request, config) {
     tgFormData.append('chat_id', config.tgChatId);
     tgFormData.append(field, file, file.name);
     const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/${method}`, { method: 'POST', body: tgFormData });
-    if (!tgResponse.ok) throw new Error('Telegram参数配置错误');
+    if (!tgResponse.ok) {
+      const errorText = await tgResponse.text();
+      throw new Error(`Telegram API调用失败 (状态码: ${tgResponse.status}): ${errorText}`);
+    }
 
     const tgData = await tgResponse.json();
     const result = tgData.result;
-    const messageId = tgData.result?.message_id;
+    const messageId = result?.message_id;
     const fileId = result?.document?.file_id || result?.video?.file_id || result?.audio?.file_id || (result?.photo && result.photo[result.photo.length - 1]?.file_id);
     if (!fileId) throw new Error('未获取到文件ID');
     if (!messageId) throw new Error('未获取到tg消息ID');
-
     const time = Date.now();
     const timestamp = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-    const originalUrl = `https://${config.domain}/${time}.${ext}`;
-    const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
-    let webpUrl = null;
-    let finalUrl = originalUrl;
 
-    // 仅在开启 WebP 且是可转换图片时，才生成 webpUrl
-    if (config.webpEnabled && isConvertibleImage) {
-      webpUrl = `https://${config.domain}/${time}.webp`;
-      finalUrl = webpUrl;
-    }
+    const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
+    const useWebpMode = config.webpEnabled && isConvertibleImage;
+    const originalUrl = `https://${config.domain}/${time}.${ext}`;
+    const webpUrl = useWebpMode ? `https://${config.domain}/${time}.webp` : null;
+    const finalUrl = useWebpMode ? webpUrl : originalUrl;
+    const webpFileName = useWebpMode ? file.name.replace(/\.[^/.]+$/, '.webp') : null;
+    const finalFileName = useWebpMode ? webpFileName : file.name;
 
     await config.database
       .prepare(
         `
-      INSERT INTO files (url, webp_url, fileId, message_id, created_at, file_name, file_size, mime_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO files (url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
       )
-      .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, file.size, file.type)
+      .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, webpFileName, file.size, file.type)
       .run();
 
-    return new Response(JSON.stringify({ status: 1, msg: '✔ 上传成功', url: finalUrl }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ status: 1, msg: '✔ 上传成功', url: finalUrl, file: finalFileName }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    let statusCode = 500; // 默认500
+    let statusCode = 500;
     if (error.message.includes(`文件超过${config.maxSizeMB}MB限制`)) {
       statusCode = 400; // 客户端错误：文件大小超限
     } else if (error.message.includes('Telegram参数配置错误')) {
@@ -235,7 +289,10 @@ async function handleUploadRequest(request, config) {
       statusCode = 504; // 网络超时或断网
     }
     console.error(`[Error] ${error.message}`, error);
-    return new Response(JSON.stringify({ status: 0, msg: '✘ 上传失败', error: error.message }), { status: statusCode, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ status: 0, msg: '✘ 上传失败', error: error.message }), {
+      status: statusCode,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
@@ -244,7 +301,7 @@ async function handleAdminRequest(request, config) {
   try {
     const files = await config.database
       .prepare(
-        `SELECT url, webp_url, fileId, message_id, created_at, file_name, file_size, mime_type
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type
         FROM files
         ORDER BY created_at DESC`
       )
@@ -253,31 +310,30 @@ async function handleAdminRequest(request, config) {
     const fileList = files.results || [];
     const fileCards = fileList
       .map((file) => {
-        const fileName = file.file_name;
-        const fileSize = formatSize(file.file_size || 0);
         const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
-        let displayFileName = fileName; // 默认为原始文件名
-        let finalUrl = file.url; // 默认为原始URL
+        const displayFileSize = formatSize(file.file_size);
+        let displayUrl = file.url;
+        let displayFileName = file.file_name;
 
         const isWebpMode = config.webpEnabled && file.webp_url;
         if (isWebpMode) {
-          finalUrl = file.webp_url;
-          displayFileName = fileName.replace(/\.[^/.]+$/, '.webp');
+          displayUrl = file.webp_url;
+          displayFileName = file.webp_file_name;
         }
 
         return `
         <div class="file-card" data-url="${file.url}">
           <div class="file-preview">
-            ${getPreviewHtml(finalUrl)}
+            ${getPreviewHtml(displayUrl)}
           </div>
           <div class="file-info">
             <div>${displayFileName}</div>
-            <div>${fileSize}</div>
+            <div>${displayFileSize}</div>
             <div>${createdAt}</div>
           </div>
           <div class="file-actions">
-            <button class="btn btn-copy" onclick="showQRCode('${finalUrl}')">分享</button>
-            <a class="btn btn-down" href="${finalUrl}" download="${displayFileName}" target="_blank">下载</a>
+            <button class="btn btn-copy" onclick="showQRCode('${displayUrl}')">分享</button>
+            <a class="btn btn-down" href="${displayUrl}" download="${displayFileName}" target="_blank">下载</a>
             <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
           </div>
         </div>
@@ -304,7 +360,10 @@ async function handleAdminRequest(request, config) {
     });
   } catch (error) {
     console.error('[Error]:', error);
-    return new Response(`服务器内部错误: ${error.message}`, { status: 500, headers: { 'Content-Type': 'text/html' } });
+    return new Response(`服务器内部错误: ${error.message}`, {
+      status: 500,
+      headers: { 'Content-Type': 'text/html' },
+    });
   }
 }
 
@@ -315,48 +374,36 @@ async function handleSearchRequest(request, config) {
     const searchPattern = `%${query}%`;
     const files = await config.database
       .prepare(
-        `SELECT url, webp_url, fileId, message_id, created_at, file_name, file_size, mime_type
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type
         FROM files 
         WHERE file_name LIKE ? ESCAPE '!'
+        OR webp_file_name LIKE ? ESCAPE '!'
         COLLATE NOCASE
         ORDER BY created_at DESC`
       )
-      .bind(searchPattern)
+      .bind(searchPattern, searchPattern)
       .all();
 
-    return new Response(JSON.stringify({ files: files.results || [] }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ files: files.results || [] }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('[error] Search request failed:', error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-  }
-}
-
-// 支持预览的文件类型
-function getPreviewHtml(url) {
-  const ext = (url.split('.').pop() || '').toLowerCase();
-  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'icon'].includes(ext);
-  const isVideo = ['mp4', 'webm'].includes(ext);
-  const isAudio = ['mp3', 'wav', 'ogg'].includes(ext);
-
-  if (isImage) {
-    return `<img src="${url}" alt="预览">`;
-  } else if (isVideo) {
-    return `<video src="${url}" controls></video>`;
-  } else if (isAudio) {
-    return `<audio src="${url}" controls></audio>`;
-  } else {
-    return `<div style="font-size: 48px">📄</div>`;
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
 // 获取文件并缓存
 async function handleFileRequest(request, config) {
-  const url = request.url;
   const cache = caches.default;
-  const cacheKey = new Request(url);
-  const urlObj = new URL(url);
-  const isWebpRequest = urlObj.pathname.toLowerCase().endsWith('.webp'); // 确定D1查询字段
+  const cacheKey = request;
+  const { pathname } = new URL(request.url);
+  const isWebpRequest = pathname.toLowerCase().endsWith('.webp');
   const lookupColumn = config.webpEnabled && isWebpRequest ? 'webp_url' : 'url';
+  const lookupValue = request.url;
 
   try {
     // 尝试从缓存中获取
@@ -366,10 +413,10 @@ async function handleFileRequest(request, config) {
     // 从数据库查询文件
     const file = await config.database
       .prepare(
-        `SELECT url, webp_url, fileId, message_id, file_name, mime_type
+        `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type
          FROM files WHERE ${lookupColumn} = ?`
       )
-      .bind(url)
+      .bind(lookupValue)
       .first();
 
     if (!file) {
@@ -379,50 +426,31 @@ async function handleFileRequest(request, config) {
       });
     }
 
-    // 重定向条件：WebP 启用 AND 请求的是原始 URL (.jpg/png) AND 数据库中有 webp_url 记录
+    // 重定向条件：WebP 启用 AND 请求的是原始 URL, AND 数据库中有 webp_url 记录
     if (config.webpEnabled && !isWebpRequest && file.webp_url) {
-      return Response.redirect(file.webp_url, 302); // 302 临时重定向
+      return Response.redirect(file.webp_url, 302);
     }
 
     // 获取 Telegram 文件
-    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/getFile?file_id=${file.fileId}`);
-    if (!tgResponse.ok) {
-      return new Response('获取文件失败', {
-        status: 500,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      });
-    }
-
-    const tgData = await tgResponse.json();
-    const filePath = tgData.result?.file_path;
-    if (!filePath) {
-      return new Response('文件路径无效', {
+    const fileUrl = await getTelegramFileUrl(file.fileId, config);
+    if (!fileUrl) {
+      return new Response('文件路径无效或获取失败', {
         status: 404,
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       });
     }
 
-    // TG原始文件URL
-    const fileUrl = `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
-
     let fileResponse;
     let contentType = file.mime_type;
-
-    // 确定是否执行 Image Resizing 转换
     const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.mime_type);
     const shouldConvert = config.webpEnabled && isWebpRequest && isConvertibleImage;
 
     if (shouldConvert) {
-      const resizingOptions = `format=webp,quality=80,fit=contain`;
-      const imageResizingUrl = `https://${config.domain}/cdn-cgi/image/${resizingOptions}/${encodeURIComponent(fileUrl)}`;
+      const imageResizingUrl = buildImageResizingUrl(fileUrl, config);
       fileResponse = await fetch(imageResizingUrl);
-
-      if (fileResponse.ok) {
-        contentType = fileResponse.headers.get('Content-Type') || 'image/webp';
-      }
+      if (fileResponse.ok) contentType = fileResponse.headers.get('Content-Type') || 'image/webp';
     }
     if (!fileResponse || !fileResponse.ok) fileResponse = await fetch(fileUrl);
-
     if (!fileResponse.ok) {
       return new Response('下载文件失败', {
         status: 500,
@@ -431,7 +459,7 @@ async function handleFileRequest(request, config) {
     }
 
     // 创建响应并缓存 (使用新的 contentType)
-    let finalFileName = file.file_name || '';
+    let finalFileName = file.file_name;
     if (isWebpRequest) finalFileName = finalFileName.replace(/\.[^/.]+$/, '.webp');
     const response = new Response(fileResponse.body, {
       headers: {
@@ -465,7 +493,7 @@ async function handleDeleteRequest(request, config) {
       });
     }
 
-    const file = await config.database.prepare('SELECT fileId, message_id FROM files WHERE url = ?').bind(url).first();
+    const file = await config.database.prepare('SELECT fileId, message_id FROM files WHERE url = ? OR webp_url = ?').bind(url, url).first();
     if (!file) {
       return new Response(JSON.stringify({ error: '文件不存在' }), {
         status: 404,
@@ -473,36 +501,38 @@ async function handleDeleteRequest(request, config) {
       });
     }
 
-    let deleteError = null;
-
-    try {
-      const deleteResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`);
-      if (!deleteResponse.ok) {
-        const errorData = await deleteResponse.json();
-        console.error('[error] Telegram message delete failed:', errorData);
-        throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
+    const deleteError = await (async () => {
+      try {
+        const deleteResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`);
+        if (!deleteResponse.ok) {
+          const errorData = await deleteResponse.json();
+          console.error('[error] Telegram message delete failed:', errorData);
+          if (errorData.description && errorData.description.includes('message to delete not found')) {
+            return 'Telegram消息已不存在，但已从数据库移除';
+          }
+          throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
+        }
+        return null;
+      } catch (error) {
+        return error.message;
       }
-    } catch (error) {
-      deleteError = error.message;
-    }
+    })();
 
     // 删除数据库表数据，即使Telegram删除失败也会删除数据库记录
-    await config.database.prepare('DELETE FROM files WHERE url = ?').bind(url).run();
+    await config.database.prepare('DELETE FROM files WHERE url = ? OR webp_url = ?').bind(url, url).run();
     return new Response(
       JSON.stringify({
         success: true,
         message: deleteError ? `文件已从数据库删除，但Telegram消息删除失败: ${deleteError}` : '文件删除成功',
       }),
-      { headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('[error] File delete request failed:', error);
-    return new Response(
-      JSON.stringify({
-        error: error.message.includes('message to delete not found') ? '文件已从频道移除' : error.message,
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
@@ -538,18 +568,6 @@ async function handleBingImagesRequest() {
     console.error('[error] Bing images request failed:', error);
     return new Response('请求 Bing API 失败', { status: 500 });
   }
-}
-
-// 文件大小计算函数
-function formatSize(bytes) {
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-  return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
 function headLinks() {
@@ -792,11 +810,12 @@ function generateUploadPage() {
       }
       .preview-item {
         display: flex;
+        position: relative;
         align-items: center;
         padding: 10px;
         border: 1px solid #ddd;
         margin-bottom: 10px;
-        border-radius: 4px;
+        border-radius: 8px;
       }
       .preview-item img {
         max-width: 100px;
@@ -806,6 +825,29 @@ function generateUploadPage() {
       .preview-item .info {
         flex-grow: 1;
       }
+      .clear-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.05);
+        color: #888;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+        z-index: 10;
+      }
+      .clear-btn:hover {
+        background: #ff4d4f;
+        color: white;
+        transform: rotate(90deg);
+      }
       .url-area {
         margin-top: 10px;
         width: calc(100% - 20px);
@@ -813,11 +855,12 @@ function generateUploadPage() {
       }
       .url-area textarea {
         width: 100%;
+        resize: vertical;
         min-height: 100px;
         padding: 10px;
         border: 1px solid #ddd;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.5);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.3);
         color: #333;       
       }
       .admin-link {
@@ -1047,6 +1090,7 @@ function generateUploadPage() {
             if (xhr.status >= 200 && xhr.status < 300 && data.status === 1) {
               progressText.textContent = data.msg;
               uploadedUrls.push(data.url);
+              preview.setAttribute('data-url', data.url);
               updateUrlArea();
               preview.classList.add('success');
             } else {
@@ -1069,6 +1113,18 @@ function generateUploadPage() {
       function createPreview(file) {
         const div = document.createElement('div');
         div.className = 'preview-item';
+
+        // 创建清除按钮
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'clear-btn';
+        clearBtn.innerHTML = '<i class="fas fa-times"></i>';
+        clearBtn.title = '清除';
+        clearBtn.onclick = function() {
+          const urlToRemove = div.getAttribute('data-url'); 
+          if (urlToRemove) { uploadedUrls = uploadedUrls.filter(url => url !== urlToRemove); updateUrlArea(); }
+          div.remove();
+        };
+        div.appendChild(clearBtn);
         
         if (file.type.startsWith('image/')) {
           const img = document.createElement('img');
