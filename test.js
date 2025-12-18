@@ -273,9 +273,9 @@ async function handleUploadRequest(request, config) {
       .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, webpFileName, file.size, file.type)
       .run();
 
-    return new Response(JSON.stringify({status: 1, msg: '✔ 上传成功', url: finalUrl, file: finalFileName}), {
+    return new Response(JSON.stringify({ status: 1, msg: '✔ 上传成功', url: finalUrl, file: finalFileName }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     let statusCode = 500;
@@ -291,7 +291,7 @@ async function handleUploadRequest(request, config) {
     console.error(`[Error] ${error.message}`, error);
     return new Response(JSON.stringify({ status: 0, msg: '✘ 上传失败', error: error.message }), {
       status: statusCode,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }
@@ -314,13 +314,13 @@ async function handleAdminRequest(request, config) {
         const displayFileSize = formatSize(file.file_size);
         let displayUrl = file.url;
         let displayFileName = file.file_name;
-        
+
         const isWebpMode = config.webpEnabled && file.webp_url;
         if (isWebpMode) {
           displayUrl = file.webp_url;
           displayFileName = file.webp_file_name;
         }
-        
+
         return `
         <div class="file-card" data-url="${file.url}">
           <div class="file-preview">
@@ -362,7 +362,7 @@ async function handleAdminRequest(request, config) {
     console.error('[Error]:', error);
     return new Response(`服务器内部错误: ${error.message}`, {
       status: 500,
-      headers: { 'Content-Type': 'text/html' }
+      headers: { 'Content-Type': 'text/html' },
     });
   }
 }
@@ -385,13 +385,13 @@ async function handleSearchRequest(request, config) {
       .all();
 
     return new Response(JSON.stringify({ files: files.results || [] }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('[error] Search request failed:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }
@@ -404,7 +404,7 @@ async function handleFileRequest(request, config) {
   const isWebpRequest = pathname.toLowerCase().endsWith('.webp');
   const lookupColumn = config.webpEnabled && isWebpRequest ? 'webp_url' : 'url';
   const lookupValue = request.url;
-  
+
   try {
     // 尝试从缓存中获取
     const cachedResponse = await cache.match(cacheKey);
@@ -436,10 +436,10 @@ async function handleFileRequest(request, config) {
     if (!fileUrl) {
       return new Response('文件路径无效或获取失败', {
         status: 404,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       });
     }
-    
+
     let fileResponse;
     let contentType = file.mime_type;
     const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.mime_type);
@@ -493,10 +493,7 @@ async function handleDeleteRequest(request, config) {
       });
     }
 
-    const file = await config.database
-      .prepare('SELECT fileId, message_id FROM files WHERE url = ? OR webp_url = ?')
-      .bind(url, url)
-      .first();
+    const file = await config.database.prepare('SELECT fileId, message_id FROM files WHERE url = ? OR webp_url = ?').bind(url, url).first();
     if (!file) {
       return new Response(JSON.stringify({ error: '文件不存在' }), {
         status: 404,
@@ -522,10 +519,7 @@ async function handleDeleteRequest(request, config) {
     })();
 
     // 删除数据库表数据，即使Telegram删除失败也会删除数据库记录
-    await config.database
-      .prepare('DELETE FROM files WHERE url = ? OR webp_url = ?')
-      .bind(url, url)
-      .run();
+    await config.database.prepare('DELETE FROM files WHERE url = ? OR webp_url = ?').bind(url, url).run();
     return new Response(
       JSON.stringify({
         success: true,
@@ -535,9 +529,9 @@ async function handleDeleteRequest(request, config) {
     );
   } catch (error) {
     console.error('[error] File delete request failed:', error);
-    return new Response(JSON.stringify({error: error.message}),{
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }
@@ -816,11 +810,12 @@ function generateUploadPage() {
       }
       .preview-item {
         display: flex;
+        position: relative;
         align-items: center;
         padding: 10px;
         border: 1px solid #ddd;
         margin-bottom: 10px;
-        border-radius: 4px;
+        border-radius: 8px;
       }
       .preview-item img {
         max-width: 100px;
@@ -830,6 +825,29 @@ function generateUploadPage() {
       .preview-item .info {
         flex-grow: 1;
       }
+      .clear-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.05);
+        color: #888;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+        z-index: 10;
+      }
+      .clear-btn:hover {
+        background: #ff4d4f;
+        color: white;
+        transform: rotate(90deg);
+      }
       .url-area {
         margin-top: 10px;
         width: calc(100% - 20px);
@@ -837,11 +855,12 @@ function generateUploadPage() {
       }
       .url-area textarea {
         width: 100%;
+        resize: vertical;
         min-height: 100px;
         padding: 10px;
         border: 1px solid #ddd;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.5);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.3);
         color: #333;       
       }
       .admin-link {
@@ -1071,6 +1090,7 @@ function generateUploadPage() {
             if (xhr.status >= 200 && xhr.status < 300 && data.status === 1) {
               progressText.textContent = data.msg;
               uploadedUrls.push(data.url);
+              preview.setAttribute('data-url', data.url);
               updateUrlArea();
               preview.classList.add('success');
             } else {
@@ -1093,6 +1113,18 @@ function generateUploadPage() {
       function createPreview(file) {
         const div = document.createElement('div');
         div.className = 'preview-item';
+
+        // 创建清除按钮
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'clear-btn';
+        clearBtn.innerHTML = '<i class="fas fa-times"></i>';
+        clearBtn.title = '清除';
+        clearBtn.onclick = function() {
+          const urlToRemove = div.getAttribute('data-url'); 
+          if (urlToRemove) { uploadedUrls = uploadedUrls.filter(url => url !== urlToRemove); updateUrlArea(); }
+          div.remove();
+        };
+        div.appendChild(clearBtn);
         
         if (file.type.startsWith('image/')) {
           const img = document.createElement('img');
