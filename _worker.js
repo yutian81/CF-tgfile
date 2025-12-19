@@ -841,7 +841,14 @@ function generateUploadPage() {
         border-radius: 8px;
         box-sizing: border-box;
       }
-      .preview-item img { max-width: 100px; max-height: 60px; margin-right: 10px; flex-shrink: 0; }
+      .preview-item img {
+        width: 100px;
+        height: 60px;
+        object-fit: cover;
+        margin-right: 15px;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
       .preview-item .info { flex-grow: 1; min-width: 0; overflow: hidden; }
       .info div:first-child {
         font-weight: bold;
@@ -1004,36 +1011,33 @@ function generateUploadPage() {
       setInterval(setBingBackground, 3600000);
       
       // 获取文件图标
-      function getFileIcon(fileName) {
+      function getFileInfo(fileName) {
         const extension = fileName.split('.').pop().toLowerCase();
         const iconMap = {
           // 文档
-          'pdf': 'fa-file-pdf',
-          'doc': 'fa-file-word',
-          'docx': 'fa-file-word',
-          'xls': 'fa-file-excel',
-          'xlsx': 'fa-file-excel',
-          'ppt': 'fa-file-powerpoint',
-          'pptx': 'fa-file-powerpoint',
-          'txt': 'fa-file-alt',
+          'pdf': { icon: 'fa-file-pdf', color: '#ff4d4f' },
+          'doc': { icon: 'fa-file-word', color: '#2b579a' },
+          'docx': { icon: 'fa-file-word', color: '#2b579a' },
+          'xls': { icon: 'fa-file-excel', color: '#217346' },
+          'xlsx': { icon: 'fa-file-excel', color: '#217346' },
+          'ppt': { icon: 'fa-file-powerpoint', color: '#d24726' },
+          'pptx': { icon: 'fa-file-powerpoint', color: '#d24726' },
+          'txt': { icon: 'fa-file-alt', color: '#666' },
           // 压缩包
-          'zip': 'fa-file-archive',
-          'rar': 'fa-file-archive',
-          '7z': 'fa-file-archive',
-          'tar': 'fa-file-archive',
-          'gz': 'fa-file-archive',
+          'zip': { icon: 'fa-file-archive', color: '#fadb14' },
+          'rar': { icon: 'fa-file-archive', color: '#fadb14' },
+          '7z': { icon: 'fa-file-archive', color: '#fadb14' },
           // 代码
-          'html': 'fa-file-code',
-          'css': 'fa-file-code',
-          'js': 'fa-file-code',
-          'json': 'fa-file-code',
+          'html': { icon: 'fa-file-code', color: '#e34f26' },
+          'css': { icon: 'fa-file-code', color: '#1572b6' },
+          'js': { icon: 'fa-file-code', color: '#f7df1e' },
+          'json': { icon: 'fa-file-code', color: '#333' },
           // 视频音频
-          'mp4': 'fa-file-video',
-          'mov': 'fa-file-video',
-          'mp3': 'fa-file-audio',
-          'wav': 'fa-file-audio'
+          'mp4': { icon: 'fa-file-video', color: '#722ed1' },
+          'mov': { icon: 'fa-file-video', color: '#722ed1' },
+          'mp3': { icon: 'fa-file-audio', color: '#eb2f96' },
         };
-        return iconMap[extension] || 'fa-file'; // 如果匹配不到，返回通用文件图标
+        return iconMap[extension] || { icon: 'fa-file', color: '#8c8c8c' };
       }
 
       const uploadArea = document.getElementById('uploadArea');
@@ -1170,20 +1174,21 @@ function generateUploadPage() {
           img.src = URL.createObjectURL(file);
           div.appendChild(img);
         } else {
-          const iconContainer = document.createElement('div'); // 非图片文件，显示大图标
+          const info = getFileInfo(file.name);
+          const iconContainer = document.createElement('div');
           iconContainer.style.cssText = \`
             width: 100px; 
-            height: 100px; 
+            height: 56px; 
             display: flex; 
             justify-content: center; 
             align-items: center; 
-            background: rgba(0,0,0,0.1); 
-            margin-right: 10px; 
+            background: \${info.color}15;
+            margin-right: 15px; 
             border-radius: 4px; 
             flex-shrink: 0;
+            border: 1px solid \${info.color}33;
           \`;
-          const iconClass = getFileIcon(file.name);
-          iconContainer.innerHTML = \`<i class="fas \${iconClass}" style="font-size: 40px; color: #666;"></i>\`;
+          iconContainer.innerHTML = \`<i class="fas \${info.icon}" style="font-size: 36px; color: \${info.color};"></i>\`;
           div.appendChild(iconContainer);
         }    
 
