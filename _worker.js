@@ -332,9 +332,9 @@ async function handleAdminRequest(request, config) {
             <div>${createdAt}</div>
           </div>
           <div class="file-actions">
-            <button class="btn btn-copy" onclick="showQRCode('${displayUrl}')">分享</button>
-            <a class="btn btn-down" href="${displayUrl}" download="${displayFileName}" target="_blank">下载</a>
-            <button class="btn btn-delete" onclick="deleteFile('${file.url}')">删除</button>
+            <button class="btn btn-copy" onclick="showQRCode('${displayUrl}')"><i class="fas fa-share"></i> 分享</button>
+            <a class="btn btn-down" href="${displayUrl}" download="${displayFileName}" target="_blank"><i class="fas fa-download"></i> 下载</a>
+            <button class="btn btn-delete" onclick="deleteFile('${file.url}')"><i class="fas fa-trash"></i> 删除</button>
           </div>
         </div>
       `;
@@ -347,8 +347,8 @@ async function handleAdminRequest(request, config) {
       <div class="qr-content">
         <div id="qrcode"></div>
         <div class="qr-buttons">
-          <button class="qr-copy" onclick="handleCopyUrl()">复制链接</button>
-          <button class="qr-close" onclick="closeQRModal()">关闭</button>
+          <button class="qr-copy" onclick="handleCopyUrl()"><i class="fas fa-copy"></i> 复制链接</button>
+          <button class="qr-close" onclick="closeQRModal()"><i class="fas fa-times"></i> 关闭</button>
         </div>
       </div>
     </div>
@@ -606,6 +606,8 @@ function generateLoginPage() {
         min-height: 100vh;
         margin: 0;
         background: #f5f5f5;
+        background-size: cover;
+        background-position: center;
         font-family: Arial, sans-serif;
         display: flex;
         justify-content: center;
@@ -614,53 +616,58 @@ function generateLoginPage() {
         box-sizing: border-box;
       }
       .login-container {
-        background: rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
-        padding: 20px;
+        padding: 30px 30px 20px 30px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         width: 100%;
         max-width: 400px;
         z-index: 1;
       }
-      .form-group {
-        margin-bottom: 1rem;
-      }
+      .form-group { margin-bottom: 1rem; }
+      .input-wrapper { position: relative; display: block; }
+      .input-wrapper i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #666; pointer-events: none; }
       input {
         width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
+        padding: 0.75rem 0.75rem 0.75rem 35px;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
         font-size: 1rem;
         box-sizing: border-box;
-        background: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.6);
         color: #333;
+        outline: none;
       }
+      input:focus { background: rgba(255, 255, 255, 0.5); border-color: #007bff; box-shadow: 0 0 5px rgba(0, 98, 255, 0.5); }
+
       button {
         width: 100%;
         padding: 0.75rem;
         background: #007bff;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
         font-size: 1rem;
         cursor: pointer;
         margin-bottom: 10px;
+        transition: background 0.3s ease;
       }
-      button:hover {
-        background: #0056b3;
-      }
-      .error {
-        color: #dc3545;
-        margin-top: 1rem;
-        display: none;
+      button:hover { background: #0056b3; }
+      button:disabled { background: #ccc; cursor: not-allowed; }
+
+      .error { 
+        color: #dc3545; 
+        margin-top: 1rem; 
+        font-size: 14px;
+        display: none; 
+        text-align: center;
       }
 
-      /* 版权页脚 */
       footer {
         position: absolute;
-        margin-bottom: 10px;
+        margin-bottom: 30px;
         bottom: 0;
         left: 0;
         width: 100%;
@@ -670,7 +677,7 @@ function generateLoginPage() {
         background: transparent;
       }
       footer p {
-        color: #fff;
+        color: #585858;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -678,40 +685,39 @@ function generateLoginPage() {
         gap: 8px;
         margin: 0;
       }
-      footer a {
-        color: #fff;
-        text-decoration: none;
-        transition: color 0.3s ease;
-      }
-      footer a:hover {
-        color: #007BFF !important;
-      }
+      footer a { color: #585858; text-decoration: none; }
+      footer a:hover { color: #007BFF; transition: color 0.3s ease; }
     </style>
   </head>
   <body>
     <div class="login-container">
-      <h2 style="text-align: center; margin-bottom: 2rem;">登录</h2>
+      <h2 style="text-align: center; margin: 0 0 20px 0;"><i class="fab fa-telegram"></i> TG Files 文件管理</h2>
       <form id="loginForm">
         <div class="form-group">
-          <input type="text" id="username" placeholder="用户名" required>
+          <div class="input-wrapper">
+            <i class="fas fa-user"></i>
+            <input type="text" id="username" placeholder="用户名" required autocomplete="username">
+          </div>
         </div>
         <div class="form-group">
-          <input type="password" id="password" placeholder="密码" required>
+          <div class="input-wrapper">
+            <i class="fas fa-key"></i>
+            <input type="password" id="password" placeholder="密码" required autocomplete="current-password">
+          </div>
         </div>
-        <button type="submit">登录</button>
-        <div id="error" class="error">用户名或密码错误</div>
+        <button type="submit" id="loginBtn"><i class="fas fa-right-to-bracket"></i> 登录</button>
+        <div id="error" class="error"></div>
       </form>
     </div>
     <footer>
       ${copyright()}
     </footer>
     <script>
-      // 添加背景图相关函数
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing', { cache: 'no-store' });  // 禁用缓存
+          const response = await fetch('/bing', { cache: 'no-store' });
           const data = await response.json();
-          if (data.status && data.data && data.data.length > 0) {
+          if (data.status && data.data && Array.isArray(data.data) && data.data.length > 0) {
             const randomIndex = Math.floor(Math.random() * data.data.length);
             document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
           }
@@ -719,17 +725,21 @@ function generateLoginPage() {
           console.error('获取背景图失败:', error);
         }
       }
-      // 页面加载时设置背景图
       setBingBackground(); 
-      // 每小时更新一次背景图
       setInterval(setBingBackground, 3600000);
 
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const loginBtn = document.getElementById('loginBtn');
+        const errorEl = document.getElementById('error');
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value.trim();
-        const errorEl = document.getElementById('error');
-        errorEl.style.display = 'none'; // 隐藏旧错误
+        
+        // 状态重置：先禁用按钮再发请求
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+        errorEl.style.display = 'none';
     
         try {
           const response = await fetch('/login', {
@@ -742,12 +752,18 @@ function generateLoginPage() {
             window.location.href = '/upload';
           } else {
             errorEl.style.display = 'block';
-            errorEl.textContent = "用户名或密码错误";
+            errorEl.innerHTML = '<i class="fas fa-ban"></i> 用户名或密码错误';
+            // 失败时恢复按钮
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = '<i class="fas fa-right-to-bracket"></i> 登录';
           }
         } catch (err) {
           console.error('登录请求失败:', err);
           errorEl.style.display = 'block';
-          errorEl.textContent = "登录失败，请稍后再试";
+          errorEl.innerHTML = '<i class="fas fa-clock"></i> 网络错误，请稍后再试';
+          // 异常时恢复按钮
+          loginBtn.disabled = false;
+          loginBtn.innerHTML = '<i class="fas fa-right-to-bracket"></i> 登录';
         }
       });
     </script>
@@ -769,130 +785,71 @@ function generateUploadPage() {
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 100vh;
+        min-height: 100vh;
         background: #f5f5f5;
+        background-size: cover;
+        background-position: center;
         margin: 0;
       }
       .container {
-        width: 800px;
-        background: rgba(255, 255, 255, 0.5);
+        width: 95%;
+        max-width: 800px;
+        background: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
-        padding: 10px 40px 20px 40px;
+        padding: 30px;
+        margin: 20px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        margin: 20px;
+        box-sizing: border-box;
       }
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
+      
+      .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+      .admin-link {
+        background: #007BFF;
+        padding: 5px 10px;
+        border: none;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #ffffff;
+        display: inline-block;
+        margin-left: auto;
       }
+      .admin-link:hover { background: #0056b3; text-decoration: none; transition: color 0.3s ease; }
+      
       .upload-area {
-        border: 2px dashed #666;
-        padding: 40px;
+        border: 2px dashed rgba(0, 0, 0, 0.15);
+        padding: 20px;
         text-align: center;
         margin: 0 auto;
         border-radius: 8px;
         transition: all 0.3s;
         box-sizing: border-box;
       }
-      .upload-area p {
-        line-height: 2;
-      }
-      .upload-area.dragover {
-        border-color: #007bff;
-        background: #f8f9fa;
-      }
-      .preview-area {
-        margin-top: 20px;
-      }
+      .upload-area p { line-height: 2; }
+      .upload-area.dragover { border-color: #007bff; background: #f8f9fa; }
+      
+      .preview-area { margin-top: 20px; }
       .preview-item {
         display: flex;
-        position: relative;
+        flex-direction: row;
         align-items: center;
+        position: relative;
         padding: 10px;
         border: 1px solid #ddd;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         border-radius: 8px;
-      }
-      .preview-item img {
-        max-width: 100px;
-        max-height: 100px;
-        margin-right: 10px;
-      }
-      .preview-item .info {
-        flex-grow: 1;
-      }
-      .clear-btn {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        width: 24px;
-        height: 24px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: rgba(0, 0, 0, 0.05);
-        color: #888;
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 0.2s;
-        z-index: 10;
-      }
-      .clear-btn:hover {
-        background: #ff4d4f;
-        color: white;
-        transform: rotate(90deg);
-      }
-      .url-area {
-        margin-top: 10px;
-        width: calc(100% - 20px);
         box-sizing: border-box;
       }
-      .url-area textarea {
-        width: 100%;
-        resize: vertical;
-        min-height: 100px;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.3);
-        color: #333;       
-      }
-      .admin-link {
-        background: #007BFF;
-        padding: 5px 10px;
-        border: none;
-        border-radius: 4px;
-        text-decoration: none;
-        color: #fff;     
-        display: inline-block;
-        margin-left: auto;
-      }
-      .admin-link:hover {
-        text-decoration: underline;
-      }
-      .button-container {
-        display: flex;
-        align-items: center;
-        margin: 15px 0;
-        width: 100%;
-      }
-      .button-container button {
-        margin-right: 10px;
-        padding: 5px 10px;
-        border: none;
-        border-radius: 4px;
-        background: #007bff;
-        color: white;
-        cursor: pointer;
-      }
-      .button-container button:hover {
-        background: #0056b3;
+      .preview-item img { max-width: 100px; max-height: 60px; margin-right: 10px; flex-shrink: 0; }
+      .preview-item .info { flex-grow: 1; min-width: 0; overflow: hidden; }
+      .info div:first-child {
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        word-break: break-all;
+        white-space: normal;
+        font-size: 14px;
       }
       .progress-bar {
         height: 20px;
@@ -916,50 +873,96 @@ function generateUploadPage() {
         color: white;
         font-size: 12px;
       }
-      .success .progress-track {
-        background: #28a745;
+      .success .progress-track { background: #28a745; }
+      .success .progress-text { color: white; }
+      .error .progress-track { background: #dc3545; }
+      .clear-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.05);
+        color: #888;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+        z-index: 10;
       }
-      .error .progress-track {
-        background: #dc3545;
+      .clear-btn:hover { background: #ff4d4f; color: white; transform: rotate(90deg); }
+
+      .url-area { margin: 15px 0; box-sizing: border-box; }
+      .url-area .input-wrapper { position: relative; display: block; width: 100%; }
+      .url-area .input-wrapper i { position: absolute; left: 12px; top: 15px; color: #666; pointer-events: none; }
+      .url-area textarea {
+        width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        min-height: 100px;
+        padding: 12px 12px 12px 35px;
+        word-break: break-all;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.2);
       }
+
+      .button-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 15px 0;
+      }
+      .button-container button {
+        flex: 1;
+        min-width: 80px;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 4px;
+        background: #007bff;
+        color: white;
+        cursor: pointer;
+      }
+      .button-container button:hover { background: #0056b3; transition: color 0.3s ease; }
 
       /* 版权页脚 */
       footer {
         font-size: 0.85rem;
         width: 100%;
         text-align: center;
-        margin: 0;
+        padding: 15px 0 5px 0;
       }
       footer p {
-        color: #7F7F7E;
+        color: #585858;
         display: flex;
-        justify-content: flex-end;
-        align-items: center;
+        margin: 0;
+        align-content: center;
+        justify-content: center;
         flex-wrap: wrap;
         gap: 8px;
-        margin: 0;
       }
-      /* 手机屏幕下居中 */
+      footer a { color: #585858; text-decoration: none; transition: color 0.3s ease; }
+      footer a:hover { color: #007BFF; transition: color 0.3s ease; }
+      
+      /* PC屏幕 */
       @media (max-width: 768px) {
-        footer p {
-          justify-content: center;
-        }
-      }
-      footer a {
-        color: #7F7F7E;
-        text-decoration: none;
-        transition: color 0.3s ease;
-      }
-      footer a:hover {
-        color: #007BFF !important;
+        footer p { justify-content: center; }
+        .container { padding: 15px; margin: 10px auto; }
+        .preview-item { flex-direction: column; align-items: flex-start; }
+        .preview-item img { width: 100%; height: 120px; margin-right: 0; margin-bottom: 10px; }
+        .preview-item .info { width: 100%; }
       }
     </style>
   </head>
   <body>
     <div class="container">
       <div class="header">
-        <h1>文件上传</h1>
-        <a href="/admin" class="admin-link">文件管理</a>
+        <h1 style="margin: 0;"><i class="fas fa-file-upload"></i> 文件上传</h1>
+        <a href="/admin" class="admin-link"><i class="fas fa-list"></i> 文件管理</a>
       </div>
       <div class="upload-area" id="uploadArea">
         <p>点击选择 或 拖拽文件到此处<br>支持 Ctrl+V 粘贴上传</p>
@@ -967,12 +970,14 @@ function generateUploadPage() {
       </div>
       <div class="preview-area" id="previewArea"></div>
       <div class="url-area">
-        <textarea id="urlArea" readonly placeholder="上传完成后的链接将显示在这里"></textarea>
+        <div class="input-wrapper">
+          <i class="fas fa-link"></i> <textarea id="urlArea" readonly placeholder="上传完成后的链接将显示在这里"></textarea>
+        </div>
       </div>
       <div class="button-container">
-        <button onclick="copyUrls('url')">复制URL</button>
-        <button onclick="copyUrls('markdown')">复制Markdown</button>
-        <button onclick="copyUrls('html')">复制HTML</button>
+        <button onclick="copyUrls('url')"><i class="fas fa-link"></i> 复制 URL</button>
+        <button onclick="copyUrls('markdown')"><i class="fab fa-markdown"></i> 复制 Markdown</button>
+        <button onclick="copyUrls('html')"><i class="fas fa-code"></i> 复制 HTML</button>
       </div>
       <footer>
         ${copyright()}
@@ -985,7 +990,7 @@ function generateUploadPage() {
         try {
           const response = await fetch('/bing', { cache: 'no-store' });  // 禁用缓存
           const data = await response.json();
-          if (data.status && data.data && data.data.length > 0) {
+          if (data.status && data.data && Array.isArray(data.data) && data.data.length > 0) {
             const randomIndex = Math.floor(Math.random() * data.data.length);
             document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
           }
@@ -997,6 +1002,39 @@ function generateUploadPage() {
       setBingBackground(); 
       // 每小时更新一次背景图
       setInterval(setBingBackground, 3600000);
+      
+      // 获取文件图标
+      function getFileIcon(fileName) {
+        const extension = fileName.split('.').pop().toLowerCase();
+        const iconMap = {
+          // 文档
+          'pdf': 'fa-file-pdf',
+          'doc': 'fa-file-word',
+          'docx': 'fa-file-word',
+          'xls': 'fa-file-excel',
+          'xlsx': 'fa-file-excel',
+          'ppt': 'fa-file-powerpoint',
+          'pptx': 'fa-file-powerpoint',
+          'txt': 'fa-file-alt',
+          // 压缩包
+          'zip': 'fa-file-archive',
+          'rar': 'fa-file-archive',
+          '7z': 'fa-file-archive',
+          'tar': 'fa-file-archive',
+          'gz': 'fa-file-archive',
+          // 代码
+          'html': 'fa-file-code',
+          'css': 'fa-file-code',
+          'js': 'fa-file-code',
+          'json': 'fa-file-code',
+          // 视频音频
+          'mp4': 'fa-file-video',
+          'mov': 'fa-file-video',
+          'mp3': 'fa-file-audio',
+          'wav': 'fa-file-audio'
+        };
+        return iconMap[extension] || 'fa-file'; // 如果匹配不到，返回通用文件图标
+      }
 
       const uploadArea = document.getElementById('uploadArea');
       const fileInput = document.getElementById('fileInput');
@@ -1009,27 +1047,11 @@ function generateUploadPage() {
         document.body.addEventListener(eventName, preventDefaults, false);
       });
 
-      function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-
-      ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, highlight, false);
-      });
-
-      ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, unhighlight, false);
-      });
-
-      function highlight(e) {
-        uploadArea.classList.add('dragover');
-      }
-
-      function unhighlight(e) {
-        uploadArea.classList.remove('dragover');
-      }
-
+      function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+      ['dragenter', 'dragover'].forEach(eventName => { uploadArea.addEventListener(eventName, highlight, false); });
+      ['dragleave', 'drop'].forEach(eventName => { uploadArea.addEventListener(eventName, unhighlight, false); });
+      function highlight(e) { uploadArea.classList.add('dragover'); }
+      function unhighlight(e) { uploadArea.classList.remove('dragover'); }
       uploadArea.addEventListener('drop', handleDrop, false);
       uploadArea.addEventListener('click', () => fileInput.click());
       fileInput.addEventListener('change', handleFiles);
@@ -1042,29 +1064,42 @@ function generateUploadPage() {
 
       document.addEventListener('paste', async (e) => {
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        let config = { maxSizeMB: 20 };
+        try {
+          const resp = await fetch('/config');
+          if (resp.ok) config = await resp.json();
+        } catch (e) {}
+
         for (let item of items) {
           if (item.kind === 'file') {
             const file = item.getAsFile();
+            if (file.size > config.maxSizeMB * 1024 * 1024) {
+              alert(\`粘贴的文件超过 \${config.maxSizeMB}MB 限制\`);
+              continue;
+            }
             await uploadFile(file);
           }
         }
       });
 
       async function handleFiles(e) {
-        const response = await fetch('/config');
-        if (!response.ok) {
-          throw new Error('Failed to fetch config');
-        }      
-        const config = await response.json();
         const files = Array.from(e.target.files);
-        for (let file of files) {
-          // 直接在上传前进行大小判断
-          if (file.size > config.maxSizeMB * 1024 * 1024) {
-            alert(\`文件超过\${config.maxSizeMB}MB限制\`);
-            return; // 如果文件过大则直接返回，不上传
+        if (files.length === 0) return;
+
+        try {
+          const response = await fetch('/config');
+          const config = response.ok ? await response.json() : { maxSizeMB: 20 };
+          for (let file of files) {
+            if (file.size > config.maxSizeMB * 1024 * 1024) {
+              alert(\`文件 "\${file.name}" 超过 \${config.maxSizeMB}MB 限制\`);
+              continue;
+            }
+            await uploadFile(file);
           }
-          await uploadFile(file); // 继续上传
+        } catch (error) {
+          for (let file of files) await uploadFile(file);
         }
+        fileInput.value = ''; 
       }
 
       async function uploadFile(file) {
@@ -1113,37 +1148,55 @@ function generateUploadPage() {
       function createPreview(file) {
         const div = document.createElement('div');
         div.className = 'preview-item';
-
-        // 创建清除按钮
+        // 清除按钮逻辑
         const clearBtn = document.createElement('button');
         clearBtn.className = 'clear-btn';
         clearBtn.innerHTML = '<i class="fas fa-times"></i>';
-        clearBtn.title = '清除';
         clearBtn.onclick = function() {
-          const urlToRemove = div.getAttribute('data-url'); 
-          if (urlToRemove) { uploadedUrls = uploadedUrls.filter(url => url !== urlToRemove); updateUrlArea(); }
+          const urlToRemove = div.getAttribute('data-url');
+          const img = div.querySelector('img');
+          if (img && img.src.startsWith('blob:')) { URL.revokeObjectURL(img.src); }
+          if (urlToRemove) { 
+            uploadedUrls = uploadedUrls.filter(url => url !== urlToRemove); 
+            updateUrlArea(); 
+          }
           div.remove();
         };
         div.appendChild(clearBtn);
-        
+
+        // 根据文件类型显示内容
         if (file.type.startsWith('image/')) {
           const img = document.createElement('img');
           img.src = URL.createObjectURL(file);
           div.appendChild(img);
-        }
+        } else {
+          const iconContainer = document.createElement('div'); // 非图片文件，显示大图标
+          iconContainer.style.cssText = \`
+            width: 100px; 
+            height: 100px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            background: rgba(0,0,0,0.1); 
+            margin-right: 10px; 
+            border-radius: 4px; 
+            flex-shrink: 0;
+          \`;
+          const iconClass = getFileIcon(file.name);
+          iconContainer.innerHTML = \`<i class="fas \${iconClass}" style="font-size: 40px; color: #666;"></i>\`;
+          div.appendChild(iconContainer);
+        }    
 
         const info = document.createElement('div');
         info.className = 'info';
         info.innerHTML = \`
-          <div>\${file.name}</div>
-          <div>\${formatSize(file.size)}</div>
+          <div>\${file.name} | \${formatSize(file.size)}</div>
           <div class="progress-bar">
             <div class="progress-track"></div>
             <span class="progress-text">0%</span>
           </div>
         \`;
         div.appendChild(info);
-
         return div;
       }
 
@@ -1169,15 +1222,30 @@ function generateUploadPage() {
             text = uploadedUrls.join('\\n');
             break;
           case 'markdown':
-            text = uploadedUrls.map(url => \`![](\${url})\`).join('\\n');
+            text = uploadedUrls.map(url => {
+              const isImg = /\\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(url);
+              const fileName = url.split('/').pop(); 
+              return isImg ? \`![\${fileName}](\${url})\` : \`[\${fileName}](\${url})\`;
+            }).join('\\n');
             break;
           case 'html':
-            text = uploadedUrls.map(url => \`<img src="\${url}" />\`).join('\\n');
+            text = uploadedUrls.map(url => {
+              const isImg = /\\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(url);
+              const fileName = url.split('/').pop();
+              return isImg ? \`<img src="\${url}" alt="\${fileName}" />\` : \`<a href="\${url}">\${fileName}</a>\`;
+            }).join('\\n');
             break;
         }
         navigator.clipboard.writeText(text);
         alert('已复制到剪贴板');
       }
+      
+      document.getElementById('urlArea').addEventListener('click', function() {
+        if (this.value.trim() !== "") {
+          this.select();
+          navigator.clipboard.writeText(this.value);
+        }
+      });
     </script>
   </body>
   </html>`;
@@ -1196,6 +1264,8 @@ function generateAdminPage(fileCards, qrModal) {
         margin: 0;
         padding: 20px;
         background: #f5f5f5;
+        background-size: cover;
+        background-position: center;
       }
       .container {
         max-width: 1200px;
@@ -1203,7 +1273,7 @@ function generateAdminPage(fileCards, qrModal) {
       }
 
       .header {
-        background: rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         padding: 20px;
@@ -1214,58 +1284,58 @@ function generateAdminPage(fileCards, qrModal) {
         flex-wrap: wrap; /* 移动端支持换行 */
         align-items: center;
       }
-      
-      .header h2 {
-        margin: 0;
-        flex: 1;
-        min-width: 0;
-      }
-      
+      .header h2 { margin: 0; flex: 1; min-width: 0; }
       .header .backup {
         background: #007BFF;
         padding: 5px 10px;
         border: none;
-        border-radius: 4px;
-        margin: 0 20px;
+        border-radius: 8px;
+        margin: 0;
         text-decoration: none;
         color: #fff;
         text-decoration: none;
       }
-      
-      .header .backup:hover {
-        text-decoration: underline;
-      }
-      
-      .header .search {
+      .header .backup:hover { background: #0056b3; text-decoration: none; transition: color 0.3s ease; }
+
+      .search-wrapper {
+        position: relative;
         flex: 1 1 100%;
         max-width: 100%;
-        margin-top: 10px;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        background: rgba(255,255,255,0.5);
         box-sizing: border-box;
+        margin-top: 10px;
+      }
+      .search-wrapper i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+        pointer-events: none;
+        z-index: 5;
+      }
+      .search-wrapper .search {
+        width: 100%;
+        padding: 10px 12px 10px 35px;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.5);
+        box-sizing: border-box;
+        outline: none;
+        transition: all 0.3s;
+      }
+      .search-wrapper .search:focus {
+        background: rgba(255, 255, 255, 0.8);
+        border-color: #007bff;
+        box-shadow: 0 0 8px rgba(0,123,255,0.2);
       }
       
-      /* 桌面端：不换行，搜索框固定宽度 */
-      @media (min-width: 768px) {
-        .header {
-          flex-wrap: nowrap;
-        }
-        .header .search {
-          flex: unset;
-          width: 300px;
-          margin-top: 0;
-        }
-      }
-
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 20px;
       }
       .file-card {
-        background: rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         border-radius: 8px;
@@ -1284,40 +1354,15 @@ function generateAdminPage(fileCards, qrModal) {
         max-height: 100%;
         object-fit: contain;
       }
-      .file-info {
-        padding: 10px;
-        font-size: 14px;
-      }
-      .file-actions {
-        padding: 10px;
-        border-top: 1px solid #eee;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        font-size: 12px;
-      }
-      .file-actions .btn {
-        font-size: inherit;
-      }
-      .btn {
-        padding: 5px 10px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      .btn-delete {
-        background: #dc3545;
-        color: white;
-      }
-      .btn-copy {
-        background: #007bff;
-        color: white;
-      }
-      .btn-down {
-        background: #007bff;
-        color: white;
-        text-decoration: none;
-      }
+    
+      .file-info { padding: 10px; font-size: 14px; }
+      .file-actions { padding: 10px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: flex-end; font-size: 12px; }
+      .file-actions .btn { font-size: inherit; }
+      .btn { padding: 5px 10px; border: none; border-radius: 8px; cursor: pointer; }
+      .btn-delete { background: #dc3545; color: white; }
+      .btn-copy { background: #007bff; color: white; }
+      .btn-down { background: #3c9144; color: white; text-decoration: none; }
+
       .qr-modal {
         display: none;
         position: fixed;
@@ -1368,7 +1413,7 @@ function generateAdminPage(fileCards, qrModal) {
         padding: 6px 14px;
         border-radius: 8px;
         border: none;
-        background: rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         color: #0A0A0A;
@@ -1381,16 +1426,8 @@ function generateAdminPage(fileCards, qrModal) {
         margin: 20px 0;
       }
 
-      #pagination .btn-page:hover {
-        background-color: #007bff;
-        color: #fff;
-      }
-    
-      #pagination .btn-page.active {
-        background-color: #007bff;
-        color: #fff;
-        cursor: default;
-      }
+      #pagination .btn-page:hover { background: #0056b3; color: #fff; transition: color 0.3s ease; }
+      #pagination .btn-page.active { background-color: #007bff; color: #fff; cursor: default; }
     
       #pagination .btn-page:disabled {
         background-color: #f0f0f0;
@@ -1412,7 +1449,7 @@ function generateAdminPage(fileCards, qrModal) {
         text-align: center;
       }
       footer p {
-        color: #7F7F7E;
+        color: #585858;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -1420,22 +1457,26 @@ function generateAdminPage(fileCards, qrModal) {
         gap: 8px;
         margin: 0;
       }
-      footer a {
-        color: #7F7F7E;
-        text-decoration: none;
-        transition: color 0.3s ease;
+      footer a { color: #585858; text-decoration: none; transition: color 0.3s ease; }
+      footer a:hover { color: #007BFF; transition: color 0.3s ease; }
+      
+      /* PC端 */
+      @media (min-width: 768px) {
+        .header { flex-wrap: nowrap; }
+        /*.header .backup { margin-right: 20px; }*/
+        .search-wrapper { flex: 0 0 300px; margin-top: 0; margin-left: 20px; }
       }
-      footer a:hover {
-        color: #007BFF !important;
-      }   
     </style>
   </head>
   <body>
     <div class="container">
       <div class="header">
-        <h2>文件管理</h2>
-        <a href="/upload" class="backup">返回</a>
-        <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
+        <h2><i class="fas fa-list"></i> 文件管理</h2>
+        <a href="/upload" class="backup"><i class="fas fa-arrow-left"></i> 返回</a>
+        <div class="search-wrapper">
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="text" class="search" placeholder="搜索文件..." id="searchInput">
+        </div>
       </div>
       <div class="grid" id="fileGrid">
         ${fileCards}
@@ -1468,7 +1509,7 @@ function generateAdminPage(fileCards, qrModal) {
         try {
           const response = await fetch('/bing', { cache: 'no-store' });
           const data = await response.json();
-          if (data.status && data.data && data.data.length > 0) {
+          if (data.status && data.data && Array.isArray(data.data) && data.data.length > 0) {
             const randomIndex = Math.floor(Math.random() * data.data.length);
             document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
           }
@@ -1493,21 +1534,17 @@ function generateAdminPage(fileCards, qrModal) {
         const totalPages = Math.ceil(filteredCards.length / itemsPerPage) || 1;
         if (page > totalPages) currentPage = totalPages;
         if (page < 1) currentPage = 1;
-    
         const start = (currentPage - 1) * itemsPerPage;
         const end = start + itemsPerPage;
-    
         fileCards.forEach(c => c.style.display = 'none');
         filteredCards.slice(start, end).forEach(c => c.style.display = '');
-    
         renderPagination(totalPages);
       }
     
       function renderPagination(totalPages) {
         paginationContainer.innerHTML = '';
-    
         const prevBtn = document.createElement('button');
-        prevBtn.textContent = '上一页';
+        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i> 上一页';
         prevBtn.className = 'btn-page';
         prevBtn.disabled = currentPage === 1;
         prevBtn.onclick = () => { currentPage--; renderPage(currentPage); };
@@ -1522,7 +1559,7 @@ function generateAdminPage(fileCards, qrModal) {
         }
     
         const nextBtn = document.createElement('button');
-        nextBtn.textContent = '下一页';
+        nextBtn.innerHTML = '下一页 <i class="fas fa-chevron-right"></i>';
         nextBtn.className = 'btn-page';
         nextBtn.disabled = currentPage === totalPages;
         nextBtn.onclick = () => { currentPage++; renderPage(currentPage); };
@@ -1541,7 +1578,7 @@ function generateAdminPage(fileCards, qrModal) {
         const modal = document.getElementById('qrModal');
         const qrcodeDiv = document.getElementById('qrcode');
         const copyBtn = document.querySelector('.qr-copy');
-        copyBtn.textContent = '复制链接';
+        copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制链接';
         copyBtn.disabled = false;
         qrcodeDiv.innerHTML = '';
         new QRCode(qrcodeDiv, { text: url, width: 200, height: 200, colorDark: "#000", colorLight: "#fff", correctLevel: QRCode.CorrectLevel.H });
@@ -1551,9 +1588,12 @@ function generateAdminPage(fileCards, qrModal) {
       function handleCopyUrl() {
         navigator.clipboard.writeText(currentShareUrl).then(() => {
           const copyBtn = document.querySelector('.qr-copy');
-          copyBtn.textContent = '✔ 已复制';
+          copyBtn.innerHTML = '<i class="fas fa-check"></i> 已复制';
           copyBtn.disabled = true;
-          setTimeout(() => { copyBtn.textContent = '复制链接'; copyBtn.disabled = false; }, 5000);
+          setTimeout(() => { 
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制链接'; 
+            copyBtn.disabled = false; 
+          }, 5000);
         }).catch(() => alert('复制失败，请手动复制'));
       }
     
@@ -1561,10 +1601,9 @@ function generateAdminPage(fileCards, qrModal) {
         document.getElementById('qrModal').style.display = 'none';
       }
     
-      window.onclick = (event) => {
-        const modal = document.getElementById('qrModal');
-        if (event.target === modal) modal.style.display = 'none';
-      }
+      document.getElementById('qrModal').addEventListener('click', function(e) {
+        if (e.target === this) this.style.display = 'none';
+      });
     
       // -------------------- 删除功能 --------------------
       async function deleteFile(url) {
