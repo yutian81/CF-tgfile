@@ -992,12 +992,26 @@ function generateUploadPage() {
     </div>
 
     <script>
-      // 添加背景图相关函数
+      // 声明全局配置变量
+      let globalConfig = { maxSizeMB: 20 };
+      async function loadConfig() {
+        try {
+          const resp = await fetch('/config');
+          if (resp.ok) {
+            globalConfig = await resp.json();
+          }
+        } catch (e) {
+          console.error("加载配置失败:", e);
+        }
+      }
+      loadConfig();
+
+      // 背景图函数
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing', { cache: 'no-store' });  // 禁用缓存
+          const response = await fetch('/bing', { cache: 'no-store' });
           const data = await response.json();
-          if (data.status && data.data && Array.isArray(data.data) && data.data.length > 0) {
+          if (data.status && data.data && data.data.length > 0) {
             const randomIndex = Math.floor(Math.random() * data.data.length);
             document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
           }
@@ -1005,16 +1019,13 @@ function generateUploadPage() {
           console.error('获取背景图失败:', error);
         }
       }
-      // 页面加载时设置背景图
-      setBingBackground(); 
-      // 每小时更新一次背景图
+      setBingBackground();
       setInterval(setBingBackground, 3600000);
       
-      // 获取文件图标
+      // 文件图标映射
       function getFileInfo(fileName) {
         const extension = fileName.split('.').pop().toLowerCase();
         const iconMap = {
-          // 文档
           'pdf': { icon: 'fa-file-pdf', color: '#ff4d4f' },
           'doc': { icon: 'fa-file-word', color: '#2b579a' },
           'docx': { icon: 'fa-file-word', color: '#2b579a' },
@@ -1023,16 +1034,13 @@ function generateUploadPage() {
           'ppt': { icon: 'fa-file-powerpoint', color: '#d24726' },
           'pptx': { icon: 'fa-file-powerpoint', color: '#d24726' },
           'txt': { icon: 'fa-file-alt', color: '#666' },
-          // 压缩包
           'zip': { icon: 'fa-file-archive', color: '#fadb14' },
           'rar': { icon: 'fa-file-archive', color: '#fadb14' },
           '7z': { icon: 'fa-file-archive', color: '#fadb14' },
-          // 代码
           'html': { icon: 'fa-file-code', color: '#e34f26' },
           'css': { icon: 'fa-file-code', color: '#1572b6' },
           'js': { icon: 'fa-file-code', color: '#f7df1e' },
           'json': { icon: 'fa-file-code', color: '#333' },
-          // 视频音频
           'mp4': { icon: 'fa-file-video', color: '#722ed1' },
           'mov': { icon: 'fa-file-video', color: '#722ed1' },
           'mp3': { icon: 'fa-file-audio', color: '#eb2f96' },
@@ -1046,66 +1054,53 @@ function generateUploadPage() {
       const urlArea = document.getElementById('urlArea');
       let uploadedUrls = [];
 
+      // 统一文件处理函数：负责校验和启动上传
+      async function processFiles(files) {
+        for (let file of files) {
+          if (!file) continue;
+          if (file.size > globalConfig.maxSizeMB * 1024 * 1024) {
+            alert(\`文件 "\${file.name || '粘贴的文件'}" 超过 \${globalConfig.maxSizeMB}MB 限制\`);
+            continue;
+          } // 校验大小
+          await uploadFile(file);
+        }
+      }
+
+      // 处理点击选择和拖拽
+      function handleFiles(e) {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+          processFiles(files);
+          fileInput.value = ''; // 清除值以便重复选择同一文件
+        }
+      }
+
+      // 事件监听：粘贴上传
+      document.addEventListener('paste', (e) => {
+        const items = (e.clipboardData || window.clipboardData).items;
+        const files = [];
+        for (let item of items) {
+          if (item.kind === 'file') {
+            files.push(item.getAsFile());
+          }
+        }
+        if (files.length > 0) processFiles(files);
+      });
+
+      // UI 交互：拖拽上传区域
+      function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
       ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         uploadArea.addEventListener(eventName, preventDefaults, false);
         document.body.addEventListener(eventName, preventDefaults, false);
       });
-
-      function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-      ['dragenter', 'dragover'].forEach(eventName => { uploadArea.addEventListener(eventName, highlight, false); });
-      ['dragleave', 'drop'].forEach(eventName => { uploadArea.addEventListener(eventName, unhighlight, false); });
-      function highlight(e) { uploadArea.classList.add('dragover'); }
-      function unhighlight(e) { uploadArea.classList.remove('dragover'); }
-      uploadArea.addEventListener('drop', handleDrop, false);
+      ['dragenter', 'dragover'].forEach(eventName => { uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false); });
+      ['dragleave', 'drop'].forEach(eventName => { uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false); });
+      
+      uploadArea.addEventListener('drop', (e) => processFiles(e.dataTransfer.files), false);
       uploadArea.addEventListener('click', () => fileInput.click());
       fileInput.addEventListener('change', handleFiles);
 
-      function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        handleFiles({ target: { files } });
-      }
-
-      document.addEventListener('paste', async (e) => {
-        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-        let config = { maxSizeMB: 20 };
-        try {
-          const resp = await fetch('/config');
-          if (resp.ok) config = await resp.json();
-        } catch (e) {}
-
-        for (let item of items) {
-          if (item.kind === 'file') {
-            const file = item.getAsFile();
-            if (file.size > config.maxSizeMB * 1024 * 1024) {
-              alert(\`粘贴的文件超过 \${config.maxSizeMB}MB 限制\`);
-              continue;
-            }
-            await uploadFile(file);
-          }
-        }
-      });
-
-      async function handleFiles(e) {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        try {
-          const response = await fetch('/config');
-          const config = response.ok ? await response.json() : { maxSizeMB: 20 };
-          for (let file of files) {
-            if (file.size > config.maxSizeMB * 1024 * 1024) {
-              alert(\`文件 "\${file.name}" 超过 \${config.maxSizeMB}MB 限制\`);
-              continue;
-            }
-            await uploadFile(file);
-          }
-        } catch (error) {
-          for (let file of files) await uploadFile(file);
-        }
-        fileInput.value = ''; 
-      }
-
+      // 上传文件：负责创建预览、发送请求、更新进度
       async function uploadFile(file) {
         const preview = createPreview(file);
         previewArea.appendChild(preview);
@@ -1149,10 +1144,10 @@ function generateUploadPage() {
         xhr.send(formData);
       }
 
+      // 创建文件预览：负责显示文件信息、进度条、清除按钮
       function createPreview(file) {
         const div = document.createElement('div');
         div.className = 'preview-item';
-        // 清除按钮逻辑
         const clearBtn = document.createElement('button');
         clearBtn.className = 'clear-btn';
         clearBtn.innerHTML = '<i class="fas fa-times"></i>';
@@ -1168,7 +1163,6 @@ function generateUploadPage() {
         };
         div.appendChild(clearBtn);
 
-        // 根据文件类型显示内容
         if (file.type.startsWith('image/')) {
           const img = document.createElement('img');
           img.src = URL.createObjectURL(file);
@@ -1176,18 +1170,7 @@ function generateUploadPage() {
         } else {
           const info = getFileInfo(file.name);
           const iconContainer = document.createElement('div');
-          iconContainer.style.cssText = \`
-            width: 100px; 
-            height: 56px; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            background: \${info.color}15;
-            margin-right: 15px; 
-            border-radius: 4px; 
-            flex-shrink: 0;
-            border: 1px solid \${info.color}33;
-          \`;
+          iconContainer.style.cssText = \`width: 100px; height: 56px; display: flex; justify-content: center; align-items: center; background: \${info.color}15; margin-right: 15px; border-radius: 4px; flex-shrink: 0; border: 1px solid \${info.color}33;\`;
           iconContainer.innerHTML = \`<i class="fas \${info.icon}" style="font-size: 36px; color: \${info.color};"></i>\`;
           div.appendChild(iconContainer);
         }    
@@ -1195,7 +1178,7 @@ function generateUploadPage() {
         const info = document.createElement('div');
         info.className = 'info';
         info.innerHTML = \`
-          <div>\${file.name} | \${formatSize(file.size)}</div>
+          <div>\${file.name || 'Pasted Image'} | \${formatSize(file.size)}</div>
           <div class="progress-bar">
             <div class="progress-track"></div>
             <span class="progress-text">0%</span>
@@ -1205,6 +1188,7 @@ function generateUploadPage() {
         return div;
       }
 
+      // 格式化文件大小：负责将字节转换为易读的大小单位
       function formatSize(bytes) {
         const units = ['B', 'KB', 'MB', 'GB'];
         let size = bytes;
@@ -1216,12 +1200,15 @@ function generateUploadPage() {
         return \`\${size.toFixed(2)} \${units[unitIndex]}\`;
       }
 
+      // 更新 URL 区域：负责将上传的 URL 显示在文本区域
       function updateUrlArea() {
         urlArea.value = uploadedUrls.join('\\n');
       }
 
+      // 复制 URL 到剪贴板：负责将上传的 URL 复制到剪贴板
       function copyUrls(format) {
         let text = '';
+        if (uploadedUrls.length === 0) return;
         switch (format) {
           case 'url':
             text = uploadedUrls.join('\\n');
@@ -1245,6 +1232,7 @@ function generateUploadPage() {
         alert('已复制到剪贴板');
       }
       
+      // 点击 URL 区域复制所有 URL
       document.getElementById('urlArea').addEventListener('click', function() {
         if (this.value.trim() !== "") {
           this.select();
@@ -1252,6 +1240,7 @@ function generateUploadPage() {
         }
       });
     </script>
+
   </body>
   </html>`;
 }
