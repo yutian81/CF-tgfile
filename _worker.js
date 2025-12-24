@@ -54,7 +54,7 @@ export default {
     // 统一认证检查
     const publicRoutes = ['/config', '/bing'];
     const authRoutes = ['/', '/login'];
-    const isFileRequest = /\/[0-9]+\.[a-z0-9]+$/i.test(pathname);
+    const isFileRequest = /\/([\p{L}\p{N}_.-]+)\.[a-z0-9]+$/iu.test(pathname);
 
     if (config.enableAuth) {
       if (!publicRoutes.includes(pathname) && !authRoutes.includes(pathname) && !isFileRequest) {
