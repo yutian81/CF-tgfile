@@ -54,8 +54,10 @@ export default {
     // 统一认证检查
     const publicRoutes = ['/config', '/bing'];
     const authRoutes = ['/', '/login'];
+    const isFileRequest = /\/[0-9]+\.[a-z0-9]+$/i.test(pathname);
+
     if (config.enableAuth) {
-      if (!publicRoutes.includes(pathname) && !authRoutes.includes(pathname)) {
+      if (!publicRoutes.includes(pathname) && !authRoutes.includes(pathname) && !isFileRequest) {
         if (!authenticate(request, config)) {
           return Response.redirect(`${new URL(request.url).origin}/`, 302);
         }
