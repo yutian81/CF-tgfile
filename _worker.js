@@ -18,13 +18,13 @@ async function initDatabase(config) {
         file_size INTEGER,
         mime_type TEXT
       )
-    `
+    `,
       )
       .run();
     isDatabaseInitialized = true;
   } catch (error) {
-    console.error('[error] Database initialization failed:', error);
-    throw new Response('数据库初始化失败', { status: 500 });
+    console.error("[error] Database initialization failed:", error);
+    throw new Response("数据库初始化失败", { status: 500 });
   }
 }
 
@@ -35,11 +35,11 @@ export default {
     const config = {
       domain: env.DOMAIN,
       database: env.DATABASE,
-      username: env.USERNAME || 'admin',
-      password: env.PASSWORD || 'admin',
-      apiToken: env.API_TOKEN || 'tgfile-admin',
-      enableAuth: env.ENABLE_AUTH === 'false' ? false : true, // 是否开启身份认证，默认开启
-      webpEnabled: env.WEBP_ENABLED === 'true' ? true : false, // 是否开启 WebP 转换，默认不开启
+      username: env.USERNAME || "admin",
+      password: env.PASSWORD || "admin",
+      apiToken: env.API_TOKEN || "tgfile-admin",
+      enableAuth: env.ENABLE_AUTH === "false" ? false : true, // 是否开启身份认证，默认开启
+      webpEnabled: env.WEBP_ENABLED === "true" ? true : false, // 是否开启 WebP 转换，默认不开启
       tgBotToken: env.TG_BOT_TOKEN,
       tgChatId: env.TG_CHAT_ID,
       cookie: Number(env.COOKIE) || 7, // cookie有效期默认为 7
@@ -52,8 +52,8 @@ export default {
     const { pathname } = new URL(request.url);
 
     // 统一认证检查
-    const publicRoutes = ['/config'];
-    const authRoutes = ['/', '/login'];
+    const publicRoutes = ["/config"];
+    const authRoutes = ["/", "/login"];
     const isFileRequest = /\/([\p{L}\p{N}_.-]+)\.[a-z0-9]+$/iu.test(pathname);
 
     if (config.enableAuth) {
@@ -64,20 +64,20 @@ export default {
       }
     }
 
-    if (pathname === '/config') {
+    if (pathname === "/config") {
       const safeConfig = { maxSizeMB: config.maxSizeMB };
       return new Response(JSON.stringify(safeConfig), {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     const routes = {
-      '/': () => handleAuthRequest(request, config),
-      '/login': () => handleLoginRequest(request, config),
-      '/upload': () => handleUploadRequest(request, config),
-      '/admin': () => handleAdminRequest(request, config),
-      '/delete': () => handleDeleteRequest(request, config),
-      '/search': () => handleSearchRequest(request, config),
+      "/": () => handleAuthRequest(request, config),
+      "/login": () => handleLoginRequest(request, config),
+      "/upload": () => handleUploadRequest(request, config),
+      "/admin": () => handleAdminRequest(request, config),
+      "/delete": () => handleDeleteRequest(request, config),
+      "/search": () => handleSearchRequest(request, config),
     };
     const handler = routes[pathname];
     if (handler) return await handler();
@@ -90,15 +90,15 @@ export default {
 // 处理身份认证
 function authenticate(request, config) {
   // 检查 API Token (固定密钥认证)
-  const authHeader = request.headers.get('Authorization');
+  const authHeader = request.headers.get("Authorization");
   if (config.apiToken && authHeader) {
     // 提取 Token 值，支持 Bearer 格式或直接 Token
-    const tokenValue = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : authHeader.trim();
+    const tokenValue = authHeader.startsWith("Bearer ") ? authHeader.substring(7).trim() : authHeader.trim();
     if (tokenValue === config.apiToken) return true;
   }
 
   // 检查 Cookie (会话认证，仅在 API Token 认证失败时检查)
-  const cookies = request.headers.get('Cookie') || '';
+  const cookies = request.headers.get("Cookie") || "";
   const authToken = cookies.match(/auth_token=([^;]+)/); // 获取cookie中的auth_token
   if (authToken) {
     try {
@@ -107,7 +107,7 @@ function authenticate(request, config) {
       if (now > tokenData.expiration) return false; // 检查token是否过期
       return tokenData.username === config.username; // 如果token有效，返回用户名是否匹配
     } catch (error) {
-      console.error('[error] Authentication token parsing failed:', error);
+      console.error("[error] Authentication token parsing failed:", error);
       return false;
     }
   }
@@ -126,7 +126,7 @@ async function handleAuthRequest(request, config) {
 
 // 处理登录
 async function handleLoginRequest(request, config) {
-  if (request.method === 'POST') {
+  if (request.method === "POST") {
     const { username, password } = await request.json();
 
     if (username === config.username && password === config.password) {
@@ -141,27 +141,27 @@ async function handleLoginRequest(request, config) {
 
       const token = btoa(tokenData);
       const cookie = `auth_token=${token}; Path=/; HttpOnly; Secure; Expires=${expirationDate.toUTCString()}`;
-      return new Response('登录成功', {
+      return new Response("登录成功", {
         status: 200,
         headers: {
-          'Set-Cookie': cookie,
-          'Content-Type': 'text/plain',
+          "Set-Cookie": cookie,
+          "Content-Type": "text/plain",
         },
       });
     }
-    return new Response('身份认证失败', { status: 401 });
+    return new Response("身份认证失败", { status: 401 });
   }
   const html = generateLoginPage();
   return new Response(html, {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8' },
+    headers: { "Content-Type": "text/html;charset=UTF-8" },
   });
 }
 
 // 文件大小计算函数
 function formatSize(bytes) {
-  if (bytes === null || bytes === undefined || isNaN(bytes)) return '0.00 B';
+  if (bytes === null || bytes === undefined || isNaN(bytes)) return "0.00 B";
   let size = Number(bytes);
-  const units = ['B', 'KB', 'MB', 'GB'];
+  const units = ["B", "KB", "MB", "GB"];
   let unitIndex = 0;
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
@@ -172,10 +172,10 @@ function formatSize(bytes) {
 
 // 支持预览的文件类型
 function getPreviewHtml(url) {
-  const ext = (url.split('.').pop() || '').toLowerCase();
-  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'icon'].includes(ext);
-  const isVideo = ['mp4', 'webm'].includes(ext);
-  const isAudio = ['mp3', 'wav', 'ogg'].includes(ext);
+  const ext = (url.split(".").pop() || "").toLowerCase();
+  const isImage = ["jpg", "jpeg", "png", "gif", "webp", "svg", "icon"].includes(ext);
+  const isVideo = ["mp4", "webm"].includes(ext);
+  const isAudio = ["mp3", "wav", "ogg"].includes(ext);
 
   if (isImage) {
     return `<img src="${url}" alt="预览">`;
@@ -199,49 +199,52 @@ async function getTelegramFileUrl(fileId, config) {
     // 构造完整的 Telegram 下载 URL
     return `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
   } catch (error) {
-    console.error('[error] Fetching Telegram file URL failed:', error);
+    console.error("[error] Fetching Telegram file URL failed:", error);
     return null;
   }
 }
 
 // 构造 Cloudflare Image Resizing URL
 function buildImageResizingUrl(fileUrl, config) {
-  const webpParams = 'format=webp,quality=80';
+  const webpParams = "format=webp,quality=80";
   return `https://${config.domain}/cdn-cgi/image/${webpParams}/${encodeURIComponent(fileUrl)}`;
 }
 
 // 处理文件上传
 async function handleUploadRequest(request, config) {
-  if (request.method === 'GET') {
+  if (request.method === "GET") {
     const html = generateUploadPage();
     return new Response(html, {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' },
+      headers: { "Content-Type": "text/html;charset=UTF-8" },
     });
   }
 
   try {
     const formData = await request.formData();
-    const file = formData.get('file');
-    if (!file) throw new Error('未找到文件');
+    const file = formData.get("file");
+    if (!file) throw new Error("未找到文件");
     if (file.size > config.maxSizeMB * 1024 * 1024) throw new Error(`文件超过${config.maxSizeMB}MB限制`);
 
-    const ext = (file.name.split('.').pop() || '').toLowerCase(); //获取文件扩展名
-    const [mainType] = file.type.split('/'); // 获取文件主类型
+    const ext = (file.name.split(".").pop() || "").toLowerCase(); //获取文件扩展名
+    const [mainType] = file.type.split("/"); // 获取文件主类型
     const typeMap = {
-      image: { method: 'sendPhoto', field: 'photo' },
-      video: { method: 'sendVideo', field: 'video' },
-      audio: { method: 'sendAudio', field: 'audio' },
+      image: { method: "sendPhoto", field: "photo" },
+      video: { method: "sendVideo", field: "video" },
+      audio: { method: "sendAudio", field: "audio" },
     }; // 定义类型映射
-    let { method = 'sendDocument', field = 'document' } = typeMap[mainType] || {};
-    if (['application', 'text'].includes(mainType)) {
-      method = 'sendDocument';
-      field = 'document';
+    let { method = "sendDocument", field = "document" } = typeMap[mainType] || {};
+    if (["application", "text"].includes(mainType)) {
+      method = "sendDocument";
+      field = "document";
     }
 
     const tgFormData = new FormData();
-    tgFormData.append('chat_id', config.tgChatId);
+    tgFormData.append("chat_id", config.tgChatId);
     tgFormData.append(field, file, file.name);
-    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/${method}`, { method: 'POST', body: tgFormData });
+    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/${method}`, {
+      method: "POST",
+      body: tgFormData,
+    });
     if (!tgResponse.ok) {
       const errorText = await tgResponse.text();
       throw new Error(`Telegram API调用失败 (状态码: ${tgResponse.status}): ${errorText}`);
@@ -250,18 +253,22 @@ async function handleUploadRequest(request, config) {
     const tgData = await tgResponse.json();
     const result = tgData.result;
     const messageId = result?.message_id;
-    const fileId = result?.document?.file_id || result?.video?.file_id || result?.audio?.file_id || (result?.photo && result.photo[result.photo.length - 1]?.file_id);
-    if (!fileId) throw new Error('未获取到文件ID');
-    if (!messageId) throw new Error('未获取到tg消息ID');
+    const fileId =
+      result?.document?.file_id ||
+      result?.video?.file_id ||
+      result?.audio?.file_id ||
+      (result?.photo && result.photo[result.photo.length - 1]?.file_id);
+    if (!fileId) throw new Error("未获取到文件ID");
+    if (!messageId) throw new Error("未获取到tg消息ID");
     const time = Date.now();
     const timestamp = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
 
-    const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
+    const isConvertibleImage = ["image/jpeg", "image/png", "image/gif"].includes(file.type);
     const useWebpMode = config.webpEnabled && isConvertibleImage;
     const originalUrl = `https://${config.domain}/${time}.${ext}`;
     const webpUrl = useWebpMode ? `https://${config.domain}/${time}.webp` : null;
     const finalUrl = useWebpMode ? webpUrl : originalUrl;
-    const webpFileName = useWebpMode ? file.name.replace(/\.[^/.]+$/, '.webp') : null;
+    const webpFileName = useWebpMode ? file.name.replace(/\.[^/.]+$/, ".webp") : null;
     const finalFileName = useWebpMode ? webpFileName : file.name;
 
     await config.database
@@ -269,30 +276,30 @@ async function handleUploadRequest(request, config) {
         `
       INSERT INTO files (url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
+    `,
       )
       .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, webpFileName, file.size, file.type)
       .run();
 
-    return new Response(JSON.stringify({ status: 1, msg: '✔ 上传成功', url: finalUrl, file: finalFileName }), {
+    return new Response(JSON.stringify({ status: 1, msg: "✔ 上传成功", url: finalUrl, file: finalFileName }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
     let statusCode = 500;
     if (error.message.includes(`文件超过${config.maxSizeMB}MB限制`)) {
       statusCode = 400; // 客户端错误：文件大小超限
-    } else if (error.message.includes('Telegram参数配置错误')) {
+    } else if (error.message.includes("Telegram参数配置错误")) {
       statusCode = 502; // 网关错误：与Telegram通信失败
-    } else if (error.message.includes('未获取到文件ID') || error.message.includes('未获取到tg消息ID')) {
+    } else if (error.message.includes("未获取到文件ID") || error.message.includes("未获取到tg消息ID")) {
       statusCode = 500; // 服务器内部错误：Telegram返回数据异常
-    } else if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+    } else if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
       statusCode = 504; // 网络超时或断网
     }
     console.error(`[Error] ${error.message}`, error);
-    return new Response(JSON.stringify({ status: 0, msg: '✘ 上传失败', error: error.message }), {
+    return new Response(JSON.stringify({ status: 0, msg: "✘ 上传失败", error: error.message }), {
       status: statusCode,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   }
 }
@@ -304,14 +311,14 @@ async function handleAdminRequest(request, config) {
       .prepare(
         `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type
         FROM files
-        ORDER BY created_at DESC`
+        ORDER BY created_at DESC`,
       )
       .all();
 
     const fileList = files.results || [];
     const fileCards = fileList
       .map((file) => {
-        const createdAt = new Date(file.created_at).toISOString().replace('T', ' ').split('.')[0];
+        const createdAt = new Date(file.created_at).toISOString().replace("T", " ").split(".")[0];
         const displayFileSize = formatSize(file.file_size);
         let displayUrl = file.url;
         let displayFileName = file.file_name;
@@ -340,7 +347,7 @@ async function handleAdminRequest(request, config) {
         </div>
       `;
       })
-      .join('');
+      .join("");
 
     // 二维码分享元素
     const qrModal = `
@@ -357,13 +364,13 @@ async function handleAdminRequest(request, config) {
 
     const html = generateAdminPage(fileCards, qrModal);
     return new Response(html, {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' },
+      headers: { "Content-Type": "text/html;charset=UTF-8" },
     });
   } catch (error) {
-    console.error('[Error]:', error);
+    console.error("[Error]:", error);
     return new Response(`服务器内部错误: ${error.message}`, {
       status: 500,
-      headers: { 'Content-Type': 'text/html' },
+      headers: { "Content-Type": "text/html" },
     });
   }
 }
@@ -380,19 +387,19 @@ async function handleSearchRequest(request, config) {
         WHERE file_name LIKE ? ESCAPE '!'
         OR webp_file_name LIKE ? ESCAPE '!'
         COLLATE NOCASE
-        ORDER BY created_at DESC`
+        ORDER BY created_at DESC`,
       )
       .bind(searchPattern, searchPattern)
       .all();
 
     return new Response(JSON.stringify({ files: files.results || [] }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error('[error] Search request failed:', error);
+    console.error("[error] Search request failed:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   }
 }
@@ -402,8 +409,8 @@ async function handleFileRequest(request, config) {
   const cache = caches.default;
   const cacheKey = request;
   const { pathname } = new URL(request.url);
-  const isWebpRequest = pathname.toLowerCase().endsWith('.webp');
-  const lookupColumn = config.webpEnabled && isWebpRequest ? 'webp_url' : 'url';
+  const isWebpRequest = pathname.toLowerCase().endsWith(".webp");
+  const lookupColumn = config.webpEnabled && isWebpRequest ? "webp_url" : "url";
   const lookupValue = request.url;
 
   try {
@@ -415,15 +422,15 @@ async function handleFileRequest(request, config) {
     const file = await config.database
       .prepare(
         `SELECT url, webp_url, fileId, message_id, created_at, file_name, webp_file_name, file_size, mime_type
-         FROM files WHERE ${lookupColumn} = ?`
+         FROM files WHERE ${lookupColumn} = ?`,
       )
       .bind(lookupValue)
       .first();
 
     if (!file) {
-      return new Response('文件不存在', {
+      return new Response("文件不存在", {
         status: 404,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
       });
     }
 
@@ -435,50 +442,50 @@ async function handleFileRequest(request, config) {
     // 获取 Telegram 文件
     const fileUrl = await getTelegramFileUrl(file.fileId, config);
     if (!fileUrl) {
-      return new Response('文件路径无效或获取失败', {
+      return new Response("文件路径无效或获取失败", {
         status: 404,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
       });
     }
 
     let fileResponse;
     let contentType = file.mime_type;
-    const isConvertibleImage = ['image/jpeg', 'image/png', 'image/gif'].includes(file.mime_type);
+    const isConvertibleImage = ["image/jpeg", "image/png", "image/gif"].includes(file.mime_type);
     const shouldConvert = config.webpEnabled && isWebpRequest && isConvertibleImage;
 
     if (shouldConvert) {
       const imageResizingUrl = buildImageResizingUrl(fileUrl, config);
       fileResponse = await fetch(imageResizingUrl);
-      if (fileResponse.ok) contentType = fileResponse.headers.get('Content-Type') || 'image/webp';
+      if (fileResponse.ok) contentType = fileResponse.headers.get("Content-Type") || "image/webp";
     }
     if (!fileResponse || !fileResponse.ok) fileResponse = await fetch(fileUrl);
     if (!fileResponse.ok) {
-      return new Response('下载文件失败', {
+      return new Response("下载文件失败", {
         status: 500,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
       });
     }
 
     // 创建响应并缓存 (使用新的 contentType)
     let finalFileName = file.file_name;
-    if (isWebpRequest) finalFileName = finalFileName.replace(/\.[^/.]+$/, '.webp');
+    if (isWebpRequest) finalFileName = finalFileName.replace(/\.[^/.]+$/, ".webp");
     const response = new Response(fileResponse.body, {
       headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000',
-        'X-Content-Type-Options': 'nosniff',
-        'Access-Control-Allow-Origin': '*',
-        'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(finalFileName)}`,
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000",
+        "X-Content-Type-Options": "nosniff",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(finalFileName)}`,
       },
     });
 
     await cache.put(cacheKey, response.clone());
     return response;
   } catch (error) {
-    console.error('[error] File request failed:', error);
-    return new Response('服务器内部错误', {
+    console.error("[error] File request failed:", error);
+    return new Response("服务器内部错误", {
       status: 500,
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
     });
   }
 }
@@ -487,29 +494,34 @@ async function handleFileRequest(request, config) {
 async function handleDeleteRequest(request, config) {
   try {
     const { url } = await request.json();
-    if (!url || typeof url !== 'string') {
-      return new Response(JSON.stringify({ error: '无效的URL' }), {
+    if (!url || typeof url !== "string") {
+      return new Response(JSON.stringify({ error: "无效的URL" }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
-    const file = await config.database.prepare('SELECT fileId, message_id FROM files WHERE url = ? OR webp_url = ?').bind(url, url).first();
+    const file = await config.database
+      .prepare("SELECT fileId, message_id FROM files WHERE url = ? OR webp_url = ?")
+      .bind(url, url)
+      .first();
     if (!file) {
-      return new Response(JSON.stringify({ error: '文件不存在' }), {
+      return new Response(JSON.stringify({ error: "文件不存在" }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     const deleteError = await (async () => {
       try {
-        const deleteResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`);
+        const deleteResponse = await fetch(
+          `https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`,
+        );
         if (!deleteResponse.ok) {
           const errorData = await deleteResponse.json();
-          console.error('[error] Telegram message delete failed:', errorData);
-          if (errorData.description && errorData.description.includes('message to delete not found')) {
-            return 'Telegram消息已不存在，但已从数据库移除';
+          console.error("[error] Telegram message delete failed:", errorData);
+          if (errorData.description && errorData.description.includes("message to delete not found")) {
+            return "Telegram消息已不存在，但已从数据库移除";
           }
           throw new Error(`Telegram 消息删除失败: ${errorData.description}`);
         }
@@ -520,19 +532,19 @@ async function handleDeleteRequest(request, config) {
     })();
 
     // 删除数据库表数据，即使Telegram删除失败也会删除数据库记录
-    await config.database.prepare('DELETE FROM files WHERE url = ? OR webp_url = ?').bind(url, url).run();
+    await config.database.prepare("DELETE FROM files WHERE url = ? OR webp_url = ?").bind(url, url).run();
     return new Response(
       JSON.stringify({
         success: true,
-        message: deleteError ? `文件已从数据库删除，但Telegram消息删除失败: ${deleteError}` : '文件删除成功',
+        message: deleteError ? `文件已从数据库删除，但Telegram消息删除失败: ${deleteError}` : "文件删除成功",
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error) {
-    console.error('[error] File delete request failed:', error);
+    console.error("[error] File delete request failed:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   }
 }
@@ -654,6 +666,43 @@ function generateLoginPage() {
       }
       footer a { color: #585858; text-decoration: none; }
       footer a:hover { color: #007BFF; transition: color 0.3s ease; }
+      /* 通用模态框（毛玻璃） */
+      .modal-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+        display: none; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.25s ease;
+      }
+      .modal-overlay.show { display: flex; opacity: 1; }
+      .modal-box {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+        padding: 28px 32px; max-width: 90vw; width: 360px;
+        text-align: center; color: #222;
+        transform: scale(0.92); transition: transform 0.25s ease;
+      }
+      .modal-overlay.show .modal-box { transform: scale(1); }
+      .modal-icon { font-size: 42px; margin-bottom: 12px; }
+      .modal-icon.success { color: #28a745; }
+      .modal-icon.error { color: #dc3545; }
+      .modal-icon.warning { color: #ffc107; }
+      .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+      .modal-msg { font-size: 14px; line-height: 1.6; margin-bottom: 20px; color: #444; word-break: break-word; }
+      .modal-btns { display: flex; gap: 10px; justify-content: center; }
+      .modal-btns button {
+        padding: 8px 22px; border: none; border-radius: 8px;
+        font-size: 14px; cursor: pointer; transition: all 0.2s;
+      }
+      .modal-btn { background: #007bff; color: #fff; }
+      .modal-btn:hover { background: #0056b3; }
+      .modal-btn.secondary { background: rgba(0,0,0,0.08); color: #444; }
+      .modal-btn.secondary:hover { background: rgba(0,0,0,0.15); }
+      .modal-btn.danger { background: #dc3545; color: #fff; }
+      .modal-btn.danger:hover { background: #c82333; }
     </style>
   </head>
   <body>
@@ -728,6 +777,70 @@ function generateLoginPage() {
           loginBtn.innerHTML = '<i class="fas fa-right-to-bracket"></i> 登录';
         }
       });
+      // ---------- 通用模态框 ----------
+
+      function showModal({icon='success', title='', msg='', btns=null}) {
+
+        return new Promise(resolve => {
+
+          let overlay = document.getElementById('globalModal');
+
+          if (!overlay) {
+
+            overlay = document.createElement('div');
+
+            overlay.id = 'globalModal';
+
+            overlay.className = 'modal-overlay';
+
+            overlay.innerHTML = '<div class="modal-box"><div class="modal-icon"></div><div class="modal-title"></div><div class="modal-msg"></div><div class="modal-btns"></div></div>';
+
+            document.body.appendChild(overlay);
+
+            overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.classList.remove('show'); resolve(false); } });
+
+          }
+
+          const iconMap = { success:'fa-circle-check', error:'fa-circle-xmark', warning:'fa-triangle-exclamation', info:'fa-circle-info' };
+
+          overlay.querySelector('.modal-icon').className = 'modal-icon ' + icon + ' fas ' + (iconMap[icon]||'fa-circle-info');
+
+          overlay.querySelector('.modal-title').textContent = title;
+
+          overlay.querySelector('.modal-msg').textContent = msg;
+
+          const btnBox = overlay.querySelector('.modal-btns'); btnBox.innerHTML = '';
+
+          const list = btns || [{text:'确定', type:'primary'}];
+
+          list.forEach(b => {
+
+            const btn = document.createElement('button');
+
+            btn.textContent = b.text;
+
+            btn.className = 'modal-btn' + (b.type==='secondary' ? ' secondary' : (b.type==='danger' ? ' danger' : ''));
+
+            btn.onclick = () => { overlay.classList.remove('show'); resolve(b.value !== undefined ? b.value : true); };
+
+            btnBox.appendChild(btn);
+
+          });
+
+          overlay.classList.add('show');
+
+        });
+
+      }
+
+      async function showAlert(msg, title='提示', icon='info') { await showModal({icon, title, msg}); }
+
+      async function showConfirm(msg, title='确认', icon='warning') {
+
+        return await showModal({icon, title, msg, btns:[{text:'取消', type:'secondary', value:false},{text:'确定', type:'primary', value:true}]});
+
+      }
+
     </script>
   </body>
   </html>`;
@@ -764,12 +877,8 @@ function generateUploadPage() {
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         box-sizing: border-box;
-        max-height: calc(100vh - 40px);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
       }
-      
+
       .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
       .admin-link {
         background: #007BFF;
@@ -785,7 +894,11 @@ function generateUploadPage() {
       
       .upload-area {
         border: 2px dashed rgba(0, 0, 0, 0.15);
-        padding: 20px;
+        padding: 8px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         text-align: center;
         margin: 0 auto;
         border-radius: 8px;
@@ -795,15 +908,15 @@ function generateUploadPage() {
       .upload-area p { line-height: 2; }
       .upload-area.dragover { border-color: #007bff; background: #f8f9fa; }
       
-      .preview-area { margin-top: 20px; flex: 1 1 auto; overflow-y: auto; min-height: 120px; max-height: 45vh; padding-right: 6px; }
+      .preview-area { margin-top: 20px; display: none; overflow-y: auto; min-height: 80px; max-height: 180px; padding-right: 6px; }
       .preview-item {
         display: flex;
         flex-direction: row;
         align-items: center;
         position: relative;
         padding: 10px;
-        border: 1px solid #ddd;
-        margin-bottom: 15px;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        margin-bottom: 8px;
         border-radius: 8px;
         box-sizing: border-box;
       }
@@ -869,14 +982,16 @@ function generateUploadPage() {
       }
       .clear-btn:hover { background: #ff4d4f; color: white; transform: rotate(90deg); }
 
-      .url-area { margin: 15px 0; box-sizing: border-box; }
+      .url-area { margin: 15px 0; box-sizing: border-box; height: 80px; }
       .url-area .input-wrapper { position: relative; display: block; width: 100%; }
       .url-area .input-wrapper i { position: absolute; left: 12px; top: 15px; color: #666; pointer-events: none; }
       .url-area textarea {
         width: 100%;
         box-sizing: border-box;
-        resize: vertical;
-        min-height: 100px;
+        resize: none;
+        height: 80px;
+        min-height: 80px;
+        overflow-y: auto;
         padding: 12px 12px 12px 35px;
         word-break: break-all;
         border: 1px solid rgba(0, 0, 0, 0.15);
@@ -929,6 +1044,43 @@ function generateUploadPage() {
         .preview-item img { width: 100%; height: 120px; margin-right: 0; margin-bottom: 10px; }
         .preview-item .info { width: 100%; }
       }
+      /* 通用模态框（毛玻璃） */
+      .modal-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+        display: none; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.25s ease;
+      }
+      .modal-overlay.show { display: flex; opacity: 1; }
+      .modal-box {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+        padding: 28px 32px; max-width: 90vw; width: 360px;
+        text-align: center; color: #222;
+        transform: scale(0.92); transition: transform 0.25s ease;
+      }
+      .modal-overlay.show .modal-box { transform: scale(1); }
+      .modal-icon { font-size: 42px; margin-bottom: 12px; }
+      .modal-icon.success { color: #28a745; }
+      .modal-icon.error { color: #dc3545; }
+      .modal-icon.warning { color: #ffc107; }
+      .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+      .modal-msg { font-size: 14px; line-height: 1.6; margin-bottom: 20px; color: #444; word-break: break-word; }
+      .modal-btns { display: flex; gap: 10px; justify-content: center; }
+      .modal-btns button {
+        padding: 8px 22px; border: none; border-radius: 8px;
+        font-size: 14px; cursor: pointer; transition: all 0.2s;
+      }
+      .modal-btn { background: #007bff; color: #fff; }
+      .modal-btn:hover { background: #0056b3; }
+      .modal-btn.secondary { background: rgba(0,0,0,0.08); color: #444; }
+      .modal-btn.secondary:hover { background: rgba(0,0,0,0.15); }
+      .modal-btn.danger { background: #dc3545; color: #fff; }
+      .modal-btn.danger:hover { background: #c82333; }
     </style>
   </head>
   <body>
@@ -1020,7 +1172,7 @@ function generateUploadPage() {
         for (let file of files) {
           if (!file) continue;
           if (file.size > globalConfig.maxSizeMB * 1024 * 1024) {
-            alert(\`文件 "\${file.name || '粘贴的文件'}" 超过 \${globalConfig.maxSizeMB}MB 限制\`);
+            await showAlert(\`文件 "\${file.name || '粘贴的文件'}" 超过 \${globalConfig.maxSizeMB}MB 限制\`, '文件过大', 'warning');
             continue;
           } // 校验大小
           await uploadFile(file);
@@ -1065,6 +1217,7 @@ function generateUploadPage() {
       async function uploadFile(file) {
         const preview = createPreview(file);
         previewArea.appendChild(preview);
+        previewArea.style.display = 'block';
 
         const xhr = new XMLHttpRequest();
         const progressTrack = preview.querySelector('.progress-track');
@@ -1121,6 +1274,9 @@ function generateUploadPage() {
             updateUrlArea(); 
           }
           div.remove();
+          if (previewArea.children.length === 0) {
+            previewArea.style.display = 'none';
+          }
         };
         div.appendChild(clearBtn);
 
@@ -1190,7 +1346,7 @@ function generateUploadPage() {
             break;
         }
         navigator.clipboard.writeText(text);
-        alert('已复制到剪贴板');
+        showAlert('已复制到剪贴板', '复制成功', 'success');
       }
       
       // 点击 URL 区域复制所有 URL
@@ -1200,6 +1356,70 @@ function generateUploadPage() {
           navigator.clipboard.writeText(this.value);
         }
       });
+      // ---------- 通用模态框 ----------
+
+      function showModal({icon='success', title='', msg='', btns=null}) {
+
+        return new Promise(resolve => {
+
+          let overlay = document.getElementById('globalModal');
+
+          if (!overlay) {
+
+            overlay = document.createElement('div');
+
+            overlay.id = 'globalModal';
+
+            overlay.className = 'modal-overlay';
+
+            overlay.innerHTML = '<div class="modal-box"><div class="modal-icon"></div><div class="modal-title"></div><div class="modal-msg"></div><div class="modal-btns"></div></div>';
+
+            document.body.appendChild(overlay);
+
+            overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.classList.remove('show'); resolve(false); } });
+
+          }
+
+          const iconMap = { success:'fa-circle-check', error:'fa-circle-xmark', warning:'fa-triangle-exclamation', info:'fa-circle-info' };
+
+          overlay.querySelector('.modal-icon').className = 'modal-icon ' + icon + ' fas ' + (iconMap[icon]||'fa-circle-info');
+
+          overlay.querySelector('.modal-title').textContent = title;
+
+          overlay.querySelector('.modal-msg').textContent = msg;
+
+          const btnBox = overlay.querySelector('.modal-btns'); btnBox.innerHTML = '';
+
+          const list = btns || [{text:'确定', type:'primary'}];
+
+          list.forEach(b => {
+
+            const btn = document.createElement('button');
+
+            btn.textContent = b.text;
+
+            btn.className = 'modal-btn' + (b.type==='secondary' ? ' secondary' : (b.type==='danger' ? ' danger' : ''));
+
+            btn.onclick = () => { overlay.classList.remove('show'); resolve(b.value !== undefined ? b.value : true); };
+
+            btnBox.appendChild(btn);
+
+          });
+
+          overlay.classList.add('show');
+
+        });
+
+      }
+
+      async function showAlert(msg, title='提示', icon='info') { await showModal({icon, title, msg}); }
+
+      async function showConfirm(msg, title='确认', icon='warning') {
+
+        return await showModal({icon, title, msg, btns:[{text:'取消', type:'secondary', value:false},{text:'确定', type:'primary', value:true}]});
+
+      }
+
     </script>
 
   </body>
@@ -1311,7 +1531,7 @@ function generateAdminPage(fileCards, qrModal) {
       }
     
       .file-info { padding: 10px; font-size: 14px; }
-      .file-actions { padding: 10px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: flex-end; font-size: 12px; }
+      .file-actions { padding: 10px; border-top: 1px solid rgba(0, 0, 0, 0.15); display: flex; justify-content: space-between; align-items: flex-end; font-size: 12px; }
       .file-actions .btn { font-size: inherit; }
       .btn { padding: 5px 10px; border: none; border-radius: 8px; cursor: pointer; }
       .btn-delete { background: #dc3545; color: white; }
@@ -1421,6 +1641,43 @@ function generateAdminPage(fileCards, qrModal) {
         /*.header .backup { margin-right: 20px; }*/
         .search-wrapper { flex: 0 0 300px; margin-top: 0; margin-left: 20px; }
       }
+      /* 通用模态框（毛玻璃） */
+      .modal-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+        display: none; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.25s ease;
+      }
+      .modal-overlay.show { display: flex; opacity: 1; }
+      .modal-box {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+        padding: 28px 32px; max-width: 90vw; width: 360px;
+        text-align: center; color: #222;
+        transform: scale(0.92); transition: transform 0.25s ease;
+      }
+      .modal-overlay.show .modal-box { transform: scale(1); }
+      .modal-icon { font-size: 42px; margin-bottom: 12px; }
+      .modal-icon.success { color: #28a745; }
+      .modal-icon.error { color: #dc3545; }
+      .modal-icon.warning { color: #ffc107; }
+      .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+      .modal-msg { font-size: 14px; line-height: 1.6; margin-bottom: 20px; color: #444; word-break: break-word; }
+      .modal-btns { display: flex; gap: 10px; justify-content: center; }
+      .modal-btns button {
+        padding: 8px 22px; border: none; border-radius: 8px;
+        font-size: 14px; cursor: pointer; transition: all 0.2s;
+      }
+      .modal-btn { background: #007bff; color: #fff; }
+      .modal-btn:hover { background: #0056b3; }
+      .modal-btn.secondary { background: rgba(0,0,0,0.08); color: #444; }
+      .modal-btn.secondary:hover { background: rgba(0,0,0,0.15); }
+      .modal-btn.danger { background: #dc3545; color: #fff; }
+      .modal-btn.danger:hover { background: #c82333; }
     </style>
   </head>
   <body>
@@ -1544,7 +1801,7 @@ function generateAdminPage(fileCards, qrModal) {
             copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制链接'; 
             copyBtn.disabled = false; 
           }, 5000);
-        }).catch(() => alert('复制失败，请手动复制'));
+        }).catch(() => showAlert('复制失败，请手动复制', '复制失败', 'error'));
       }
     
       function closeQRModal() {
@@ -1557,7 +1814,7 @@ function generateAdminPage(fileCards, qrModal) {
     
       // -------------------- 删除功能 --------------------
       async function deleteFile(url) {
-        if (!confirm('确定要删除这个文件吗？')) return;
+        if (!(await showConfirm('确定要删除这个文件吗？此操作不可撤销。', '删除确认'))) return;
         try {
           const response = await fetch('/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
           if (!response.ok) {
@@ -1568,14 +1825,51 @@ function generateAdminPage(fileCards, qrModal) {
           if (card) card.remove();
           fileCards = Array.from(fileGrid.children); // 更新缓存
           renderPage(currentPage);
-          alert('文件删除成功');
+          await showAlert('文件删除成功', '删除成功', 'success');
         } catch (err) {
-          alert('文件删除失败: ' + err.message);
+          await showAlert('文件删除失败: ' + err.message, '删除失败', 'error');
         }
       }
     
       // -------------------- 初始渲染 --------------------
       renderPage(currentPage);
+      
+      // ---------- 通用模态框 ----------
+      function showModal({icon='success', title='', msg='', btns=null}) {
+        return new Promise(resolve => {
+          let overlay = document.getElementById('globalModal');
+          if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'globalModal';
+            overlay.className = 'modal-overlay';
+            overlay.innerHTML = '<div class="modal-box"><div class="modal-icon"></div><div class="modal-title"></div><div class="modal-msg"></div><div class="modal-btns"></div></div>';
+            document.body.appendChild(overlay);
+            overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.classList.remove('show'); resolve(false); } });
+          }
+          
+          const iconMap = { success:'fa-circle-check', error:'fa-circle-xmark', warning:'fa-triangle-exclamation', info:'fa-circle-info' };
+          overlay.querySelector('.modal-icon').className = 'modal-icon ' + icon + ' fas ' + (iconMap[icon]||'fa-circle-info');
+          overlay.querySelector('.modal-title').textContent = title;
+          overlay.querySelector('.modal-msg').textContent = msg;
+          const btnBox = overlay.querySelector('.modal-btns'); btnBox.innerHTML = '';
+          const list = btns || [{text:'确定', type:'primary'}];
+          
+          list.forEach(b => {
+            const btn = document.createElement('button');
+            btn.textContent = b.text;
+            btn.className = 'modal-btn' + (b.type==='secondary' ? ' secondary' : (b.type==='danger' ? ' danger' : ''));
+            btn.onclick = () => { overlay.classList.remove('show'); resolve(b.value !== undefined ? b.value : true); };
+            btnBox.appendChild(btn);
+          });
+          overlay.classList.add('show');
+        });
+      }
+
+      async function showAlert(msg, title='提示', icon='info') { await showModal({icon, title, msg}); }
+      async function showConfirm(msg, title='确认', icon='warning') {
+        return await showModal({icon, title, msg, btns:[{text:'取消', type:'secondary', value:false},{text:'确定', type:'primary', value:true}]});
+      }
+
     </script>
   </body>
   </html>`;
