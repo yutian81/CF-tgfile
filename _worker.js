@@ -204,10 +204,11 @@ async function getTelegramFileUrl(fileId, config) {
   }
 }
 
-// 构造 Cloudflare Image Resizing URL
-function buildImageResizingUrl(fileUrl, config) {
-  const webpParams = "format=webp,quality=80";
-  return `https://${config.domain}/cdn-cgi/image/${webpParams}/${encodeURIComponent(fileUrl)}`;
+// 在 Worker 内部对远程图片进行 webp 转换并返回响应（CF Images Worker API）
+async function fetchWebpConverted(tgFileUrl) {
+  return await fetch(tgFileUrl, {
+    cf: { image: { format: "webp", quality: 80 } },
+  });
 }
 
 // 处理文件上传
@@ -281,7 +282,41 @@ async function handleUploadRequest(request, config) {
       .bind(originalUrl, webpUrl, fileId, messageId, timestamp, file.name, webpFileName, file.size, file.type)
       .run();
 
-    return new Response(JSON.stringify({ status: 1, msg: "✔ 上传成功", url: finalUrl, file: finalFileName }), {
+    // 方案A优化版：webp 预转换，测量准确大小并预热缓存
+    let webpSize = file.size;
+    if (useWebpMode) {
+      try {
+        const tgFileUrl = await getTelegramFileUrl(fileId, config);
+        if (tgFileUrl) {
+          const webpResponse = await fetchWebpConverted(tgFileUrl);
+          if (webpResponse.ok) {
+            // CF Images 响应不携带 Content-Length，改用读取响应体字节数
+            const webpBuffer = await webpResponse.arrayBuffer();
+            webpSize = webpBuffer.byteLength;
+            // 更新数据库为 webp 实际大小
+            await config.database
+              .prepare("UPDATE files SET file_size = ? WHERE url = ?")
+              .bind(webpSize, originalUrl)
+              .run();
+            // 将转换结果写入 CF Cache，首次访问零消耗
+            const cache = caches.default;
+            const cacheResponse = new Response(webpBuffer, {
+              headers: {
+                "Content-Type": webpResponse.headers.get("Content-Type") || "image/webp",
+                "Cache-Control": "public, max-age=31536000",
+                "Access-Control-Allow-Origin": "*",
+                "Content-Disposition": "inline; filename*=UTF-8''" + encodeURIComponent(webpFileName),
+              },
+            });
+            await cache.put(new Request(webpUrl), cacheResponse);
+          }
+        }
+      } catch (e) {
+        console.error("[warn] WebP pre-conversion failed, fallback to original size:", e);
+      }
+    }
+
+    return new Response(JSON.stringify({ status: 1, msg: "✔ 上传成功", url: finalUrl, file: finalFileName, webpSize }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -454,8 +489,7 @@ async function handleFileRequest(request, config) {
     const shouldConvert = config.webpEnabled && isWebpRequest && isConvertibleImage;
 
     if (shouldConvert) {
-      const imageResizingUrl = buildImageResizingUrl(fileUrl, config);
-      fileResponse = await fetch(imageResizingUrl);
+      fileResponse = await fetchWebpConverted(fileUrl);
       if (fileResponse.ok) contentType = fileResponse.headers.get("Content-Type") || "image/webp";
     }
     if (!fileResponse || !fileResponse.ok) fileResponse = await fetch(fileUrl);
@@ -778,67 +812,36 @@ function generateLoginPage() {
         }
       });
       // ---------- 通用模态框 ----------
-
       function showModal({icon='success', title='', msg='', btns=null}) {
-
         return new Promise(resolve => {
-
           let overlay = document.getElementById('globalModal');
-
           if (!overlay) {
-
             overlay = document.createElement('div');
-
             overlay.id = 'globalModal';
-
             overlay.className = 'modal-overlay';
-
             overlay.innerHTML = '<div class="modal-box"><div class="modal-icon"></div><div class="modal-title"></div><div class="modal-msg"></div><div class="modal-btns"></div></div>';
-
             document.body.appendChild(overlay);
-
             overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.classList.remove('show'); resolve(false); } });
-
           }
-
           const iconMap = { success:'fa-circle-check', error:'fa-circle-xmark', warning:'fa-triangle-exclamation', info:'fa-circle-info' };
-
           overlay.querySelector('.modal-icon').className = 'modal-icon ' + icon + ' fas ' + (iconMap[icon]||'fa-circle-info');
-
           overlay.querySelector('.modal-title').textContent = title;
-
           overlay.querySelector('.modal-msg').textContent = msg;
-
           const btnBox = overlay.querySelector('.modal-btns'); btnBox.innerHTML = '';
-
           const list = btns || [{text:'确定', type:'primary'}];
-
           list.forEach(b => {
-
             const btn = document.createElement('button');
-
             btn.textContent = b.text;
-
             btn.className = 'modal-btn' + (b.type==='secondary' ? ' secondary' : (b.type==='danger' ? ' danger' : ''));
-
             btn.onclick = () => { overlay.classList.remove('show'); resolve(b.value !== undefined ? b.value : true); };
-
             btnBox.appendChild(btn);
-
           });
-
           overlay.classList.add('show');
-
         });
-
       }
-
       async function showAlert(msg, title='提示', icon='info') { await showModal({icon, title, msg}); }
-
       async function showConfirm(msg, title='确认', icon='warning') {
-
         return await showModal({icon, title, msg, btns:[{text:'取消', type:'secondary', value:false},{text:'确定', type:'primary', value:true}]});
-
       }
 
     </script>
@@ -1241,6 +1244,13 @@ function generateUploadPage() {
               preview.setAttribute('data-url', data.url);
               updateUrlArea();
               preview.classList.add('success');
+              // 上传完成：显示文件大小（webp 用准确值，其他用原图大小）
+              const metaDiv = preview.querySelector('.file-meta');
+              if (metaDiv) {
+                const displayName = data.file || file.name;
+                const displaySize = data.webpSize ? formatSize(data.webpSize) : formatSize(file.size);
+                metaDiv.textContent = displayName + ' | ' + displaySize;
+              }
             } else {
               const errorMsg = [data.msg, data.error || '未知错误'].filter(Boolean).join(' | ');
               progressText.textContent = errorMsg;
@@ -1295,7 +1305,7 @@ function generateUploadPage() {
         const info = document.createElement('div');
         info.className = 'info';
         info.innerHTML = \`
-          <div>\${file.name || 'Pasted Image'} | \${formatSize(file.size)}</div>
+          <div class="file-meta">\${file.name || 'Pasted Image'} | 正在计算文件大小...</div>
           <div class="progress-bar">
             <div class="progress-track"></div>
             <span class="progress-text">0%</span>
@@ -1357,67 +1367,36 @@ function generateUploadPage() {
         }
       });
       // ---------- 通用模态框 ----------
-
       function showModal({icon='success', title='', msg='', btns=null}) {
-
         return new Promise(resolve => {
-
           let overlay = document.getElementById('globalModal');
-
           if (!overlay) {
-
             overlay = document.createElement('div');
-
             overlay.id = 'globalModal';
-
             overlay.className = 'modal-overlay';
-
             overlay.innerHTML = '<div class="modal-box"><div class="modal-icon"></div><div class="modal-title"></div><div class="modal-msg"></div><div class="modal-btns"></div></div>';
-
             document.body.appendChild(overlay);
-
             overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.classList.remove('show'); resolve(false); } });
-
           }
-
           const iconMap = { success:'fa-circle-check', error:'fa-circle-xmark', warning:'fa-triangle-exclamation', info:'fa-circle-info' };
-
           overlay.querySelector('.modal-icon').className = 'modal-icon ' + icon + ' fas ' + (iconMap[icon]||'fa-circle-info');
-
           overlay.querySelector('.modal-title').textContent = title;
-
           overlay.querySelector('.modal-msg').textContent = msg;
-
           const btnBox = overlay.querySelector('.modal-btns'); btnBox.innerHTML = '';
-
           const list = btns || [{text:'确定', type:'primary'}];
-
           list.forEach(b => {
-
             const btn = document.createElement('button');
-
             btn.textContent = b.text;
-
             btn.className = 'modal-btn' + (b.type==='secondary' ? ' secondary' : (b.type==='danger' ? ' danger' : ''));
-
             btn.onclick = () => { overlay.classList.remove('show'); resolve(b.value !== undefined ? b.value : true); };
-
             btnBox.appendChild(btn);
-
           });
-
           overlay.classList.add('show');
-
         });
-
       }
-
       async function showAlert(msg, title='提示', icon='info') { await showModal({icon, title, msg}); }
-
       async function showConfirm(msg, title='确认', icon='warning') {
-
         return await showModal({icon, title, msg, btns:[{text:'取消', type:'secondary', value:false},{text:'确定', type:'primary', value:true}]});
-
       }
 
     </script>
@@ -1700,8 +1679,6 @@ function generateAdminPage(fileCards, qrModal) {
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-    <!-- 引入 JSZip 库 -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script> -->
     <script>
       // -------------------- 基本变量 --------------------
       const itemsPerPage = 15; 
@@ -1846,14 +1823,12 @@ function generateAdminPage(fileCards, qrModal) {
             document.body.appendChild(overlay);
             overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.classList.remove('show'); resolve(false); } });
           }
-          
           const iconMap = { success:'fa-circle-check', error:'fa-circle-xmark', warning:'fa-triangle-exclamation', info:'fa-circle-info' };
           overlay.querySelector('.modal-icon').className = 'modal-icon ' + icon + ' fas ' + (iconMap[icon]||'fa-circle-info');
           overlay.querySelector('.modal-title').textContent = title;
           overlay.querySelector('.modal-msg').textContent = msg;
           const btnBox = overlay.querySelector('.modal-btns'); btnBox.innerHTML = '';
           const list = btns || [{text:'确定', type:'primary'}];
-          
           list.forEach(b => {
             const btn = document.createElement('button');
             btn.textContent = b.text;
@@ -1864,7 +1839,6 @@ function generateAdminPage(fileCards, qrModal) {
           overlay.classList.add('show');
         });
       }
-
       async function showAlert(msg, title='提示', icon='info') { await showModal({icon, title, msg}); }
       async function showConfirm(msg, title='确认', icon='warning') {
         return await showModal({icon, title, msg, btns:[{text:'取消', type:'secondary', value:false},{text:'确定', type:'primary', value:true}]});
