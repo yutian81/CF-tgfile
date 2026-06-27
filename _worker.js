@@ -184,13 +184,37 @@ function getPreviewHtml(url, mimeType) {
 
   // 按 MIME 类型预览
   if (mimeType === "application/pdf") {
-    return `<iframe src="${url}" style="width:100%;height:100%;border:none;background:#fff;border-radius:4px;"></iframe>`;
+    return `<iframe src="${url}" style="width:100%;height:100%;border:none;background:rgba(255,255,255,0.3);border-radius:4px;"></iframe>`;
   }
   if (mimeType && mimeType.startsWith("text/")) {
     return `<div class="text-preview" data-url="${url}"><i class="fas fa-file-alt" style="font-size:36px;color:#666"></i><div class="text-preview-hint">文本预览</div></div>`;
   }
 
-  return `<div style="font-size: 48px">📄</div>`;
+  // 非预览文件类型图标
+  const iconMap = {
+    'pdf': 'fa-file-pdf', 'doc': 'fa-file-word', 'docx': 'fa-file-word',
+    'xls': 'fa-file-excel', 'xlsx': 'fa-file-excel',
+    'ppt': 'fa-file-powerpoint', 'pptx': 'fa-file-powerpoint',
+    'zip': 'fa-file-archive', 'rar': 'fa-file-archive', '7z': 'fa-file-archive',
+    'html': 'fa-file-code', 'css': 'fa-file-code', 'js': 'fa-file-code',
+    'json': 'fa-file-code', 'xml': 'fa-file-code', 'yaml': 'fa-file-code', 'yml': 'fa-file-code',
+    'txt': 'fa-file-alt', 'csv': 'fa-file-csv', 'log': 'fa-file-alt',
+    'md': 'fa-file-alt', 'sql': 'fa-file-code', 'sh': 'fa-file-code', 'bat': 'fa-file-code',
+    'mp4': 'fa-file-video', 'mkv': 'fa-file-video', 'avi': 'fa-file-video',
+    'mov': 'fa-file-video', 'wmv': 'fa-file-video',
+    'mp3': 'fa-file-audio', 'wav': 'fa-file-audio', 'flac': 'fa-file-audio', 'ogg': 'fa-file-audio',
+    'exe': 'fa-gear', 'dmg': 'fa-compact-disc', 'iso': 'fa-file-archive', 'apk': 'fa-android',
+  };
+  const icon = iconMap[ext] || 'fa-file-lines';
+  const colorMap = {
+    'fa-file-pdf': '#ff4d4f', 'fa-file-word': '#2b579a', 'fa-file-excel': '#217346',
+    'fa-file-powerpoint': '#d24726', 'fa-file-archive': '#fadb14', 'fa-file-code': '#e34f26',
+    'fa-file-alt': '#666', 'fa-file-csv': '#217346',
+    'fa-file-video': '#722ed1', 'fa-file-audio': '#eb2f96',
+    'fa-file-lines': '#e8b830', 'fa-gear': '#ff7043', 'fa-compact-disc': '#42a5f5', 'fa-android': '#66bb6a',
+  };
+  const color = colorMap[icon] || '#e8b830';
+  return `<i class="fas ${icon}" style="font-size:48px;color:${color};opacity:0.55"></i>`;
 }
 
 // 调用 TG getFile API 获取文件路径，并构造完整的下载 URL
@@ -1181,19 +1205,38 @@ function generateUploadPage() {
           'xlsx': { icon: 'fa-file-excel', color: '#217346' },
           'ppt': { icon: 'fa-file-powerpoint', color: '#d24726' },
           'pptx': { icon: 'fa-file-powerpoint', color: '#d24726' },
+          'csv': { icon: 'fa-file-csv', color: '#217346' },
           'txt': { icon: 'fa-file-alt', color: '#666' },
-          'zip': { icon: 'fa-file-archive', color: '#fadb14' },
-          'rar': { icon: 'fa-file-archive', color: '#fadb14' },
-          '7z': { icon: 'fa-file-archive', color: '#fadb14' },
+          'log': { icon: 'fa-file-alt', color: '#666' },
+          'md': { icon: 'fa-file-alt', color: '#666' },
           'html': { icon: 'fa-file-code', color: '#e34f26' },
           'css': { icon: 'fa-file-code', color: '#1572b6' },
           'js': { icon: 'fa-file-code', color: '#f7df1e' },
           'json': { icon: 'fa-file-code', color: '#333' },
+          'xml': { icon: 'fa-file-code', color: '#e34f26' },
+          'yaml': { icon: 'fa-file-code', color: '#e34f26' },
+          'yml': { icon: 'fa-file-code', color: '#e34f26' },
+          'sql': { icon: 'fa-file-code', color: '#e34f26' },
+          'sh': { icon: 'fa-file-code', color: '#4CAF50' },
+          'bat': { icon: 'fa-file-code', color: '#333' },
+          'zip': { icon: 'fa-file-archive', color: '#fadb14' },
+          'rar': { icon: 'fa-file-archive', color: '#fadb14' },
+          '7z': { icon: 'fa-file-archive', color: '#fadb14' },
+          'iso': { icon: 'fa-file-archive', color: '#fadb14' },
           'mp4': { icon: 'fa-file-video', color: '#722ed1' },
+          'mkv': { icon: 'fa-file-video', color: '#722ed1' },
+          'avi': { icon: 'fa-file-video', color: '#722ed1' },
           'mov': { icon: 'fa-file-video', color: '#722ed1' },
+          'wmv': { icon: 'fa-file-video', color: '#722ed1' },
           'mp3': { icon: 'fa-file-audio', color: '#eb2f96' },
+          'wav': { icon: 'fa-file-audio', color: '#eb2f96' },
+          'flac': { icon: 'fa-file-audio', color: '#eb2f96' },
+          'ogg': { icon: 'fa-file-audio', color: '#eb2f96' },
+          'exe': { icon: 'fa-gear', color: '#ff7043' },
+          'dmg': { icon: 'fa-compact-disc', color: '#42a5f5' },
+          'apk': { icon: 'fa-android', color: '#66bb6a' },
         };
-        return iconMap[extension] || { icon: 'fa-file', color: '#8c8c8c' };
+        return iconMap[extension] || { icon: 'fa-file-lines', color: '#e8b830' };
       }
 
       const uploadArea = document.getElementById('uploadArea');
