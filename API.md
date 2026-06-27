@@ -65,7 +65,7 @@
 |------|------|------|------|------|
 | `file` | File | `form-data` | 是 | 待上传的文件 |
 
-**文件大小限制**：默认 20MB，通过 `MAX_SIZE_MB` 环境变量配置（配合自建 TG Bot API 可适当调高）。
+**文件大小限制**：默认 20MB，通过 `MAX_SIZE_MB` 环境变量配置。走官方 API 时受 Telegram 下载 20MB 限制，不宜设大。
 
 **文件类型自动识别：**
 
@@ -135,13 +135,17 @@
 
 **自建 API 的优势：**
 - 突破官方 20MB 单文件限制（`--max-file-size` 可调至 ~2000MB）
-- 上传和下载走自有服务器，网络更稳定
 - 所有 API 接口（`sendDocument` / `getFile` / `deleteMessage` 等）完全兼容，代码无需其他改动
 
 **配置方式：**
 - 在 Cloudflare Worker 环境变量中添加 `TG_API_BASE`，值为自建服务器地址
 - 例如：`TG_API_BASE=https://api.tgtg.eu.cc`
 - 同时调高 `MAX_SIZE_MB` 以匹配服务器配置
+
+**⚠️ `--local` 模式注意事项：**
+自建 API 使用 `--local` 参数时，文件仅存储在本地磁盘，**不会上传到 Telegram 服务器**。
+因此 `/file/` HTTP 文件下载端点在部分镜像中可能不工作，需要额外配置静态文件服务来承载文件下载。
+如不需要大文件支持，建议**留空 `TG_API_BASE`**，走官方 API 即可正常下载。
 
 ---
 
