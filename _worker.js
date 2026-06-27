@@ -1861,9 +1861,9 @@ function generateAdminPage(fileCards, qrModal) {
     
       // -------------------- 删除功能 --------------------
       async function deleteFile(url) {
-        const card = document.querySelector(`[data-url="${url}"]`);
+        const card = document.querySelector(\`[data-url="\${url}"]\`);
         const fileName = card ? card.querySelector('.file-info div:first-child').textContent : '此文件';
-        if (!(await showConfirm(`确定要删除 ${fileName} 吗？此操作不可撤销。`, '删除确认'))) return;
+        if (!(await showConfirm(\`确定要删除 \${fileName} 吗？此操作不可撤销。\`, '删除确认'))) return;
         try {
           const response = await fetch('/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
           if (!response.ok) {
@@ -1873,7 +1873,7 @@ function generateAdminPage(fileCards, qrModal) {
           if (card) card.remove();
           fileCards = Array.from(fileGrid.children);
           renderPage(currentPage);
-          await showAlert(`${fileName} 删除成功`, '删除成功', 'success');
+          await showAlert(\`\${fileName} 删除成功\`, '删除成功', 'success');
         } catch (err) {
           await showAlert('文件删除失败: ' + err.message, '删除失败', 'error');
         }
