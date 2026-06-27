@@ -55,7 +55,7 @@ export default {
     // 统一认证检查
     const publicRoutes = ["/config"];
     const authRoutes = ["/", "/login"];
-    const isFileRequest = /\/([\p{L}\p{N}_.-]+)\.[a-z0-9]+$/iu.test(pathname);
+    const isFileRequest = /\/([\p{L}\p{N}_.%-]+)\.[a-z0-9]+$/iu.test(pathname);
 
     if (config.enableAuth) {
       if (!publicRoutes.includes(pathname) && !authRoutes.includes(pathname) && !isFileRequest) {
@@ -172,21 +172,25 @@ function formatSize(bytes) {
 }
 
 // 支持预览的文件类型
-function getPreviewHtml(url) {
+function getPreviewHtml(url, mimeType) {
   const ext = (url.split(".").pop() || "").toLowerCase();
   const isImage = ["jpg", "jpeg", "png", "gif", "webp", "svg", "icon"].includes(ext);
   const isVideo = ["mp4", "webm"].includes(ext);
   const isAudio = ["mp3", "wav", "ogg"].includes(ext);
 
-  if (isImage) {
-    return `<img src="${url}" alt="预览">`;
-  } else if (isVideo) {
-    return `<video src="${url}" controls></video>`;
-  } else if (isAudio) {
-    return `<audio src="${url}" controls></audio>`;
-  } else {
-    return `<div style="font-size: 48px">📄</div>`;
+  if (isImage) return `<img src="${url}" alt="预览">`;
+  if (isVideo) return `<video src="${url}" controls></video>`;
+  if (isAudio) return `<audio src="${url}" controls></audio>`;
+
+  // 按 MIME 类型预览
+  if (mimeType === "application/pdf") {
+    return `<iframe src="${url}" style="width:100%;height:100%;border:none;background:#fff;border-radius:4px;"></iframe>`;
   }
+  if (mimeType && mimeType.startsWith("text/")) {
+    return `<div class="text-preview" data-url="${url}"><i class="fas fa-file-alt" style="font-size:36px;color:#666"></i><div class="text-preview-hint">文本预览</div></div>`;
+  }
+
+  return `<div style="font-size: 48px">📄</div>`;
 }
 
 // 调用 TG getFile API 获取文件路径，并构造完整的下载 URL
@@ -267,7 +271,34 @@ async function handleUploadRequest(request, config) {
 
     const isConvertibleImage = ["image/jpeg", "image/png", "image/gif"].includes(file.type);
     const useWebpMode = config.webpEnabled && isConvertibleImage;
-    const originalUrl = `https://${config.domain}/${time}.${ext}`;
+    const isImageType = mainType === "image"; // 广义图片（含 webp/svg 等不可转换的）
+    // 生成文件访问 URL
+    let originalUrl;
+    if (isImageType) {
+      originalUrl = `https://${config.domain}/${time}.${ext}`;
+    } else {
+      // 非图片文件使用原文件名，同名文件直接覆盖
+      const safeName = encodeURIComponent(file.name);
+      originalUrl = `https://${config.domain}/${safeName}`;
+      // 清除旧的 DB 记录和缓存，实现覆盖
+      const old = await config.database
+        .prepare("SELECT url, webp_url, fileId, message_id FROM files WHERE url = ?")
+        .bind(originalUrl)
+        .first();
+      if (old) {
+        await config.database.prepare("DELETE FROM files WHERE url = ?").bind(originalUrl).run();
+        // 尝试清理旧 TG 消息
+        try {
+          await fetch(`${config.tgApiBase}/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${old.message_id}`);
+        } catch {}
+        // 清除 CF 缓存
+        try {
+          const cache = caches.default;
+          await cache.delete(new Request(originalUrl));
+          if (old.webp_url) await cache.delete(new Request(old.webp_url));
+        } catch {}
+      }
+    }
     const webpUrl = useWebpMode ? `https://${config.domain}/${time}.webp` : null;
     const finalUrl = useWebpMode ? webpUrl : originalUrl;
     const webpFileName = useWebpMode ? file.name.replace(/\.[^/.]+$/, ".webp") : null;
@@ -368,7 +399,7 @@ async function handleAdminRequest(request, config) {
         return `
         <div class="file-card" data-url="${file.url}">
           <div class="file-preview">
-            ${getPreviewHtml(displayUrl)}
+            ${getPreviewHtml(displayUrl, file.mime_type)}
           </div>
           <div class="file-info">
             <div>${displayFileName}</div>
@@ -1509,6 +1540,44 @@ function generateAdminPage(fileCards, qrModal) {
         max-height: 100%;
         object-fit: contain;
       }
+      .file-preview iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        border-radius: 4px;
+      }
+      .text-preview {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .text-preview:hover { background: rgba(0,0,0,0.03); }
+      .text-preview-hint {
+        font-size: 12px;
+        color: #999;
+        margin-top: 4px;
+      }
+      .text-preview.loaded pre {
+        margin: 0;
+        padding: 8px;
+        font-size: 11px;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-height: 130px;
+        width: 100%;
+        box-sizing: border-box;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .text-preview.loaded i,
+      .text-preview.loaded .text-preview-hint { display: none; }
+      .text-preview.loaded { cursor: default; }
     
       .file-info { padding: 10px; font-size: 14px; }
       .file-actions { padding: 10px; border-top: 1px solid rgba(0, 0, 0, 0.15); display: flex; justify-content: space-between; align-items: flex-end; font-size: 12px; }
@@ -1811,7 +1880,31 @@ function generateAdminPage(fileCards, qrModal) {
     
       // -------------------- 初始渲染 --------------------
       renderPage(currentPage);
-      
+
+      // -------------------- 文本预览懒加载 --------------------
+      async function loadTextPreview(el) {
+        const url = el.dataset.url;
+        if (!url || el.classList.contains('loaded')) return;
+        try {
+          const resp = await fetch(url);
+          const text = await resp.text();
+          const truncated = text.length > 500 ? text.slice(0, 500) + '…' : text;
+          el.innerHTML = '<pre>' + escapeHtml(truncated) + '</pre>';
+          el.classList.add('loaded');
+        } catch { el.classList.add('loaded'); }
+      }
+      function escapeHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+      function observeTextPreviews() {
+        document.querySelectorAll('.text-preview:not(.loaded)').forEach(el => loadTextPreview(el));
+      }
+      // 首次加载
+      observeTextPreviews();
+      // 翻页后重新扫描
+      const origRenderPage = renderPage;
+      renderPage = function(page) { origRenderPage(page); setTimeout(observeTextPreviews, 100); };
+
       // ---------- 通用模态框 ----------
       function showModal({icon='success', title='', msg='', btns=null}) {
         return new Promise(resolve => {
