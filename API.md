@@ -165,30 +165,7 @@ JSON
 
 以下接口无需任何认证即可访问。
 
-### 5. 获取 Bing 背景图 (Bing Wallpaper)
-
-用于获取 Bing 每日高清背景图 URL 列表。
-
-|**属性**|**说明**|
-|---|---|
-|**路径**|`/bing`|
-|**方法**|`GET`|
-|**认证**|否|
-
-**响应示例:**
-
-```json
-{
-    "status": true,
-    "message": "操作成功",
-    "data": [
-        { "url": "https://cn.bing.com/th?id=OHR...." },
-        // ... 更多图片
-    ]
-}
-```
-
-### 6. 获取配置信息 (Configuration)
+### 5. 获取配置信息 (Configuration)
 
 用于获取上传限制等安全配置信息。
 

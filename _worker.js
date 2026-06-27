@@ -52,7 +52,7 @@ export default {
     const { pathname } = new URL(request.url);
 
     // 统一认证检查
-    const publicRoutes = ['/config', '/bing'];
+    const publicRoutes = ['/config'];
     const authRoutes = ['/', '/login'];
     const isFileRequest = /\/([\p{L}\p{N}_.-]+)\.[a-z0-9]+$/iu.test(pathname);
 
@@ -78,7 +78,6 @@ export default {
       '/admin': () => handleAdminRequest(request, config),
       '/delete': () => handleDeleteRequest(request, config),
       '/search': () => handleSearchRequest(request, config),
-      '/bing': handleBingImagesRequest,
     };
     const handler = routes[pathname];
     if (handler) return await handler();
@@ -538,40 +537,6 @@ async function handleDeleteRequest(request, config) {
   }
 }
 
-async function handleBingImagesRequest() {
-  const cache = caches.default;
-  const cacheKey = new Request('https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=5');
-
-  const cachedResponse = await cache.match(cacheKey);
-  if (cachedResponse) return cachedResponse;
-
-  try {
-    const res = await fetch(cacheKey);
-    if (!res.ok) {
-      return new Response('请求 Bing API 失败', { status: res.status });
-    }
-
-    const bingData = await res.json();
-    const images = bingData.images.map((image) => ({ url: `https://cn.bing.com${image.url}` }));
-    const returnData = { status: true, message: '操作成功', data: images };
-
-    const response = new Response(JSON.stringify(returnData), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=21600',
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
-
-    await cache.put(cacheKey, response.clone());
-    return response;
-  } catch (error) {
-    console.error('[error] Bing images request failed:', error);
-    return new Response('请求 Bing API 失败', { status: 500 });
-  }
-}
-
 function headLinks() {
   return `
     <meta charset="UTF-8">
@@ -717,12 +682,7 @@ function generateLoginPage() {
     <script>
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing', { cache: 'no-store' });
-          const data = await response.json();
-          if (data.status && data.data && Array.isArray(data.data) && data.data.length > 0) {
-            const randomIndex = Math.floor(Math.random() * data.data.length);
-            document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
-          }
+          document.body.style.backgroundImage = \`url('https://bing.by.ccwu.cc/api/daily')\`;
         } catch (error) {
           console.error('获取背景图失败:', error);
         }
@@ -804,6 +764,10 @@ function generateUploadPage() {
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         box-sizing: border-box;
+        max-height: calc(100vh - 40px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
       
       .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -831,7 +795,7 @@ function generateUploadPage() {
       .upload-area p { line-height: 2; }
       .upload-area.dragover { border-color: #007bff; background: #f8f9fa; }
       
-      .preview-area { margin-top: 20px; }
+      .preview-area { margin-top: 20px; flex: 1 1 auto; overflow-y: auto; min-height: 120px; max-height: 45vh; padding-right: 6px; }
       .preview-item {
         display: flex;
         flex-direction: row;
@@ -1011,12 +975,7 @@ function generateUploadPage() {
       // 背景图函数
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing', { cache: 'no-store' });
-          const data = await response.json();
-          if (data.status && data.data && data.data.length > 0) {
-            const randomIndex = Math.floor(Math.random() * data.data.length);
-            document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
-          }
+          document.body.style.backgroundImage = \`url('https://bing.by.ccwu.cc/api/daily')\`;
         } catch (error) {
           console.error('获取背景图失败:', error);
         }
@@ -1503,12 +1462,7 @@ function generateAdminPage(fileCards, qrModal) {
       // -------------------- 背景图 --------------------
       async function setBingBackground() {
         try {
-          const response = await fetch('/bing', { cache: 'no-store' });
-          const data = await response.json();
-          if (data.status && data.data && Array.isArray(data.data) && data.data.length > 0) {
-            const randomIndex = Math.floor(Math.random() * data.data.length);
-            document.body.style.backgroundImage = \`url(\${data.data[randomIndex].url})\`;
-          }
+          document.body.style.backgroundImage = \`url('https://bing.by.ccwu.cc/api/daily')\`;
         } catch (error) {
           console.error('获取背景图失败:', error);
         }
