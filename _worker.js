@@ -42,6 +42,7 @@ export default {
       webpEnabled: env.WEBP_ENABLED === "true" ? true : false, // 是否开启 WebP 转换，默认不开启
       tgBotToken: env.TG_BOT_TOKEN,
       tgChatId: env.TG_CHAT_ID,
+      tgApiBase: env.TG_API_BASE || "https://api.telegram.org", // 自建 TG Bot API 地址，未设置则回退官方
       cookie: Number(env.COOKIE) || 7, // cookie有效期默认为 7
       maxSizeMB: Number(env.MAX_SIZE_MB) || 20, // 上传单文件大小默认为20M
     };
@@ -191,13 +192,13 @@ function getPreviewHtml(url) {
 // 调用 TG getFile API 获取文件路径，并构造完整的下载 URL
 async function getTelegramFileUrl(fileId, config) {
   try {
-    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/getFile?file_id=${fileId}`);
+    const tgResponse = await fetch(`${config.tgApiBase}/bot${config.tgBotToken}/getFile?file_id=${fileId}`);
     if (!tgResponse.ok) return null;
     const tgData = await tgResponse.json();
     const filePath = tgData.result?.file_path;
     if (!filePath) return null;
     // 构造完整的 Telegram 下载 URL
-    return `https://api.telegram.org/file/bot${config.tgBotToken}/${filePath}`;
+    return `${config.tgApiBase}/file/bot${config.tgBotToken}/${filePath}`;
   } catch (error) {
     console.error("[error] Fetching Telegram file URL failed:", error);
     return null;
@@ -242,7 +243,7 @@ async function handleUploadRequest(request, config) {
     const tgFormData = new FormData();
     tgFormData.append("chat_id", config.tgChatId);
     tgFormData.append(field, file, file.name);
-    const tgResponse = await fetch(`https://api.telegram.org/bot${config.tgBotToken}/${method}`, {
+    const tgResponse = await fetch(`${config.tgApiBase}/bot${config.tgBotToken}/${method}`, {
       method: "POST",
       body: tgFormData,
     });
@@ -549,7 +550,7 @@ async function handleDeleteRequest(request, config) {
     const deleteError = await (async () => {
       try {
         const deleteResponse = await fetch(
-          `https://api.telegram.org/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`,
+          `${config.tgApiBase}/bot${config.tgBotToken}/deleteMessage?chat_id=${config.tgChatId}&message_id=${file.message_id}`,
         );
         if (!deleteResponse.ok) {
           const errorData = await deleteResponse.json();

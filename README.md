@@ -56,6 +56,7 @@
 | `API_TOKEN` | API 接口固定密钥 | 否 | 默认 `tgfile-admin` |
 | `ENABLE_AUTH` | `true` / `false` | 否 | 是否开启身份认证，默认 `true` |
 | `WEBP_ENABLED` | `true` / `false` | 否 | 是否开启 WebP 转换，默认 `false` |
+| `TG_API_BASE` | TG Bot API 地址 | 否 | 默认 `https://api.telegram.org`，自建 API 时设为自建服务器地址，例如 `https://api.tgtg.eu.cc` |
 | `MAX_SIZE_MB` | 数字 | 否 | 单文件上传大小限制（MB），默认 `20` |
 | `COOKIE` | 数字 | 否 | Cookie 有效期（天），默认 `7` |
 

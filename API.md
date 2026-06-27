@@ -129,6 +129,20 @@
 
 > **注意**：此接口返回 HTML 页面，非 JSON 数据。如需 JSON 格式的文件列表，请使用 `/search` 接口。
 
+### 3a. 自建 TG Bot API（可选）
+
+系统支持通过环境变量 `TG_API_BASE` 指定自建 Telegram Bot API 服务器地址，默认回退 `https://api.telegram.org`。
+
+**自建 API 的优势：**
+- 突破官方 20MB 单文件限制（`--max-file-size` 可调至 ~2000MB）
+- 上传和下载走自有服务器，网络更稳定
+- 所有 API 接口（`sendDocument` / `getFile` / `deleteMessage` 等）完全兼容，代码无需其他改动
+
+**配置方式：**
+- 在 Cloudflare Worker 环境变量中添加 `TG_API_BASE`，值为自建服务器地址
+- 例如：`TG_API_BASE=https://api.tgtg.eu.cc`
+- 同时调高 `MAX_SIZE_MB` 以匹配服务器配置
+
 ---
 
 ### 3. 文件搜索 `/search`
