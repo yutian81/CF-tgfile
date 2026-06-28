@@ -17,7 +17,6 @@ jobs:
       PASSWORD: ${{ secrets.PASSWORD }}
       TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
       TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-      CF_D1_ID: ${{ secrets.CF_D1_ID }}
 
     steps:
       - name: ⬇️ 检出仓库
@@ -26,32 +25,24 @@ jobs:
       - name: 🛠️ 安装 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: 🆙 安装最新 Wrangler
         run: npm install -g wrangler@latest
 
-      - name: 🔄 配置解析与变量替换
+      - name: 📝 读取项目名称
         id: config_setup
         run: |
-          if [ -z "${CF_D1_ID}" ]; then
-            echo "::error title=❌ 部署失败::必须在 [Action Secrets] 中设置 'CF_D1_ID'"
-            exit 1
-          fi
-          sed -i "s#{CF_D1_ID}#${CF_D1_ID}#g" wrangler.toml
-
           WORKER_NAME=$(grep '^name =' wrangler.toml | awk -F '"' '{print $2}')
           if [ -z "$WORKER_NAME" ]; then
             echo "::error file=wrangler.toml,line=1,title=❌ 配置错误::未能在 [wrangler.toml] 中找到 'name' 字段"
             exit 1
           fi
-
           echo "✅ 项目名称: $WORKER_NAME"
           echo "worker_name=$WORKER_NAME" >> $GITHUB_OUTPUT
-
-          echo -e "\n--- 替换后的 wrangler.toml ---"
+          echo "--- wrangler.toml ---"
           cat wrangler.toml
-          echo "----------------------------"
+          echo "--------------------"
 
       - name: ⚙️ 动态生成环境变量列表
         id: dynamic_vars
@@ -97,7 +88,7 @@ jobs:
           echo ""
           echo "::warning title=⚠️ 重要提示::必看以下说明!!!"
           echo "-----------------------------------------------------"
-          echo "为了确保项目运行在最佳状态，建议完成以下配置："
+          echo "为了确保项目运行在最佳状态，建议检查以下配置："
           echo "🚀 绑定自定义域名"
           echo "🚀 开启 WebP 图片自动转换 (手动新增环境变量):"
           echo "    - 变量名: DOMAIN        值: 自定义域名"
@@ -106,7 +97,9 @@ jobs:
           echo "-----------------------------------------------------"
           echo ""
           echo "::group::💡 其他可选环境变量（点击展开查看）"
-          echo "- API TOKEN: API接口密钥, 默认为 tgfile-admin, 用于自动化集成"
+          echo "- API_TOKEN: API接口密钥, 默认为 tgfile-admin, 用于自动化集成"
           echo "- COOKIE: COOKIE有效期, 默认为 7, 单位：天"
           echo "- ENABLE_AUTH: 是否启用登录, 默认为 true, 可设置为 false 禁用登录"
+          echo "- TG_API_BASE: 自建 TG Bot API 地址，默认为官方API"
+          echo "- MAX_SIZE_MB: 单文件大小限制 (默认 20)"
           echo "::endgroup::"

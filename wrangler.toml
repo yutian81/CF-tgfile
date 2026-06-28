@@ -1,10 +1,17 @@
 name = "cf-tgfile"
 main = "_worker.js"
-compatibility_date = "2025-07-18"
+compatibility_date = "2026-06-28"
 keep_vars = true
 
-# 绑定D1数据库
+# wrangler v4 通过 database_name 自动关联 D1 数据库，无需手动指定 ID
 [[d1_databases]]
 binding = "DATABASE"
 database_name = "tgfile-db"
-id = "{CF_D1_ID}" # action部署时被变量替换
+
+# 默认环境变量（空值表示部署后需在 CF Dashboard 中手动填写）
+# Actions 部署时会通过 GitHub Secrets 覆盖这些值
+[vars]
+TG_BOT_TOKEN = ""
+TG_CHAT_ID = ""
+USERNAME = "admin"
+PASSWORD = "admin"

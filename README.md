@@ -49,12 +49,12 @@
 
 | 变量名 | 变量值 | 是否必须 | 说明 |
 |--------|--------|----------|------|
-| `DOMAIN` | 绑定的域名 | **是** | 如果不绑域名填 Worker 域名，但无法开启 WebP 转换 |
+| `DOMAIN` | 绑定的域名 | 否 | 用于生成文件访问链接和 WebP 转换（推荐配置），不配置不影响正常部署和上传 |
 | `TG_BOT_TOKEN` | Telegram Bot Token | **是** | BotFather 获取 |
 | `TG_CHAT_ID` | Telegram 频道 ID | **是** | 格式如 `-1001234567890` |
 | `DATABASE` | D1 数据库绑定 | **是** | 在 Cloudflare Dashboard 中绑定，变量名必须为 `DATABASE` |
-| `USERNAME` | 登录用户名 | 否 | 默认 `admin` |
-| `PASSWORD` | 登录密码 | 否 | 默认 `admin` |
+| `USERNAME` | 登录用户名 | 否 | 默认 `admin`（若未设置，手动部署时需在 CF 环境变量中配置；Actions 部署通过 Secrets 传入） |
+| `PASSWORD` | 登录密码 | 否 | 默认 `admin`（同上） |
 | `API_TOKEN` | API 接口固定密钥 | 否 | 默认 `tgfile-admin` |
 | `ENABLE_AUTH` | `true` / `false` | 否 | 是否开启身份认证，默认 `true` |
 | `WEBP_ENABLED` | `true` / `false` | 否 | 是否开启 WebP 转换，默认 `false` |
@@ -64,23 +64,84 @@
 
 ## 部署方法
 
-### 1. 新建 Worker
+本项目提供两种部署方式：
+
+| 方式 | 推荐度 | 适用场景 |
+|------|--------|----------|
+| **手动部署**（粘贴代码） | ⭐ 推荐 | 只想快速用起来，无需自动化 |
+| **GitHub Actions 自动部署** | ✅ | 需要在代码更新后自动同步到 CF Worker |
+
+---
+
+### 方式一：手动部署（推荐）
+
+#### 1. 新建 Worker
 - 登录 Cloudflare Dashboard，进入 **Workers & Pages**
 - 创建一个新的 Worker
 - 将 `_worker.js` 的全部内容复制粘贴到 Worker 编辑器中并部署
 
-### 2. 绑定 D1 数据库
-- 在 Cloudflare Dashboard 中进入 **D1**，创建一个新数据库（如 `tgfile`）
+#### 2. 绑定 D1 数据库
+- 在 Cloudflare Dashboard 中进入 **D1**，创建一个新数据库（如 `tgfile-db`）
 - 返回 Worker 的 **设置 → 绑定**，添加 D1 数据库绑定：
   - 变量名称：`DATABASE`
   - 选择刚刚创建的数据库
 
-### 3. 配置环境变量
-在 Worker 的 **设置 → 环境变量** 中添加上述表格中的变量
+#### 3. 配置环境变量
+在 Worker 的 **设置 → 环境变量** 中添加上述表格中的变量，**至少需配置**：
+- `TG_BOT_TOKEN` — Telegram Bot Token
+- `TG_CHAT_ID` — Telegram 频道 ID
 
-### 4. 绑定自定义域名（推荐）
+> 若未配置 `USERNAME` / `PASSWORD`，默认值为 **`admin` / `admin`**。首次登录请使用此账号。
+
+#### 4. 绑定自定义域名（推荐）
 - 在 Worker 的 **触发器** 中绑定自定义域名
 - 同时将 `DOMAIN` 环境变量设置为该域名
+
+---
+
+### 方式二：GitHub Actions 自动部署
+
+> 前提：已从本仓库 Fork 到自己的 GitHub
+
+工作流模板位于 `.github/workflows/deploy-to-cfwk.yml~`，如需使用请**去掉文件名末尾的 `~`** 使其生效。
+
+#### 1. 配置 GitHub Secrets
+
+在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 中添加：
+
+| Secret 名称 | 说明 | 是否必须 |
+|-------------|------|----------|
+| `CF_API_TOKEN` | Cloudflare API Token（需有 Workers & D1 权限） | **是** |
+| `CF_ACCOUNT_ID` | Cloudflare 账户 ID（设为 **Variables**） | **是** |
+| `TG_BOT_TOKEN` | Telegram Bot Token | **是** |
+| `TG_CHAT_ID` | Telegram 频道 ID | **是** |
+| `USERNAME` | 登录用户名（可选） | 否 |
+| `PASSWORD` | 登录密码（可选） | 否 |
+| `DOMAIN` | 自定义域名，不带 https（可选） | 否 |
+
+> `DOMAIN` 为可选变量，Actions 部署时不传入，部署后可在 CF Dashboard 手动配置。
+
+#### 2. 触发部署
+
+自动触发条件：
+- 向 `main` 分支推送 `_worker.js` 或 `wrangler.toml`
+
+手动触发：
+- 在 GitHub 仓库的 **Actions → 自动部署到 CF Worker → Run workflow**
+
+部署成功后，工作流会自动输出 Worker 管理后台链接。
+
+## 环境变量配置对照
+
+> 手动部署在 CF Dashboard 中配，Actions 部署在 GitHub Secrets 中配。
+
+| 变量 | 手动部署 | Actions 部署 |
+|------|----------|-------------|
+| `TG_BOT_TOKEN` | CF Dashboard 环境变量 | GitHub Secrets `TG_BOT_TOKEN` |
+| `TG_CHAT_ID` | CF Dashboard 环境变量 | GitHub Secrets `TG_CHAT_ID` |
+| `DATABASE` | CF Dashboard D1 绑定 | wrangler.toml `[[d1_databases]]` |
+| `USERNAME` / `PASSWORD` | CF Dashboard 环境变量（默认 `admin`/`admin`） | GitHub Secrets（可选） |
+| `DOMAIN` | CF Dashboard 环境变量（可选） | 部署后在 CF Dashboard 手动配置 |
 
 ## 访问应用
 - 打开浏览器访问绑定的域名（或 Worker 分配的 `.workers.dev` 域名）
@@ -112,6 +173,11 @@
 > **新部署无需执行任何 SQL**，系统自动建表。
 
 ## 更新日志
+
+### 2026-06-28
+- 升级 Wrangler 至 v4，移除 `wrangler.toml` 中的 D1 数据库 ID 硬编码（v4 自动绑定）
+- 更新 GitHub Actions 部署工作流（`deploy-to-cfwk.yml~` 模板）
+- 优化 README 部署文档，区分手动部署和 Actions 部署
 
 ### 2025-12-17
 - 增加 WebP 图片自动转换（基于 CF Images API）
